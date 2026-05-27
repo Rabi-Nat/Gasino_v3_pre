@@ -23,6 +23,11 @@ out/
 .gradle/
 build/
 
+key.properties
+release-key.jks
+
+
+
 # Local configuration file (sdk path, etc)
 local.properties
 
