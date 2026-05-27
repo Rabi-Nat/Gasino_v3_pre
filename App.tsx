@@ -70,6 +70,9 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
+  // کلید عمومی پرداخت درون‌برنامه‌ای کافه بازار جهت صحت‌سنجی تراکنش‌ها
+  const BAZAAR_PUBLIC_KEY = "MIHNMA0GCSqGSIb3DQEBAQUAA4G7ADCBtwKBrwClquaLAedQqYXaL/MallnaDw1NE3QT7hZwxVkqrKEolbKVlz4cTiso01+lVonL0hEkgacQAI7mCdp4qiicjIHHkZnQ7naRCbqbQjhW+m6RkKg1LU+HbWwRzyPLSU2q46yMAkVybD9320wVqkDBG9UDA3bY64zBBNDM98YagaefMy5NQdVrs+5fs1dc2yXsB1gFtCAY7dmpB6AwyUNeLa2p+UrKfX5UzmdmopmgMkUCAwEAAQ==";
+
   // Premium subscription state for Cafe Bazaar integration
   const [isPremium, setIsPremium] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
@@ -1206,6 +1209,18 @@ const BazaarUpgradeScreen: React.FC<BazaarUpgradeProps> = ({ section, tabId, onU
   const [showDirectBilling, setShowDirectBilling] = useState(false);
   const [step, setStep] = useState<'checkout' | 'processing' | 'success'>('checkout');
 
+  // زاپاس‌های مخفی برای تسترها و توسعه‌دهنده
+  const [lockClickCount, setLockClickCount] = useState(0);
+  const [showDevBypass, setShowDevBypass] = useState(false);
+
+  const handleLockClick = () => {
+    const newCount = lockClickCount + 1;
+    setLockClickCount(newCount);
+    if (newCount >= 5) {
+      setShowDevBypass(true);
+    }
+  };
+
   const handleBypassCode = () => {
     // Hidden backdoors/activation codes for reviewers & testing
     const code = activationCode.trim().toUpperCase();
@@ -1268,6 +1283,7 @@ const BazaarUpgradeScreen: React.FC<BazaarUpgradeProps> = ({ section, tabId, onU
         {/* Golden animated Lock */}
         <div className="flex justify-center mb-6">
           <motion.div 
+            onClick={handleLockClick}
             animate={{ 
               y: [0, -8, 0],
               rotate: [0, 3, -3, 0]
@@ -1277,7 +1293,7 @@ const BazaarUpgradeScreen: React.FC<BazaarUpgradeProps> = ({ section, tabId, onU
               repeat: Infinity,
               ease: "easeInOut"
             }}
-            className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-amber-500/20 border border-amber-300"
+            className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-amber-500/20 border border-amber-300 cursor-pointer select-none"
           >
             <Lock className="w-10 h-10 text-white" />
           </motion.div>
@@ -1353,50 +1369,58 @@ const BazaarUpgradeScreen: React.FC<BazaarUpgradeProps> = ({ section, tabId, onU
             <span>خرید اشتراک طلایی (اتصال به کافه بازار)</span>
           </button>
 
-          {/* Test Override Tooltip */}
-          <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl mt-2 text-center">
-            <p className="text-[11px] text-blue-600 dark:text-blue-400 font-black flex items-center justify-center gap-2">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>جهت تست و بررسی آنی ویژگی‌های قفل شده، می‌توانید از کد فعال‌سازی تستی زیر استفاده فرمایید:</span>
-            </p>
-            <div className="mt-2 flex items-center justify-center gap-1.5">
-              <span className="font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-lg text-xs font-bold select-all">GASINO_FREE_2026</span>
-              <button 
-                onClick={() => {
-                  setActivationCode('GASINO_FREE_2026');
-                  onUnlock(true);
-                }}
-                className="text-[10px] font-black text-blue-600 hover:underline cursor-pointer"
-              >
-                (فعال‌سازی خودکار تستی)
-              </button>
-            </div>
-          </div>
-          
-          <div className="relative flex py-2 items-center">
-            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-            <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold">یا</span>
-            <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-          </div>
-
-          {/* Enter bypass activation code manually */}
-          <div className="flex gap-2 w-full">
-            <input 
-              type="text"
-              placeholder="وارد کردن کد فعال‌سازی یا لایسنس طلایی"
-              value={activationCode}
-              onChange={(e) => setActivationCode(e.target.value)}
-              className="flex-1 px-4 py-3 bg-white dark:bg-slate-900 text-xs font-bold rounded-xl border border-slate-250 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-center uppercase font-mono"
-            />
-            <button 
-              onClick={handleBypassCode}
-              className="px-5 py-3 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-black text-xs rounded-xl active:scale-95 transition-all cursor-pointer shrink-0"
+          {/* Developer Bypass Mode hidden behind Lock taps */}
+          {showDevBypass && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              className="mt-2 space-y-3"
             >
-              فعال‌سازی
-            </button>
-          </div>
-          {errorMessage && (
-            <p className="text-[10px] font-black text-rose-500 text-center mt-1">{errorMessage}</p>
+              <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-black flex items-center justify-center gap-2">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>حالت توسعه‌دهنده فعال شد. کد تستی اشتراک طلایی جهت ارزیابی داوران بازار:</span>
+                </p>
+                <div className="mt-2 flex items-center justify-center gap-1.5">
+                  <span className="font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-lg text-xs font-bold select-all">GASINO_FREE_2026</span>
+                  <button 
+                    onClick={() => {
+                      setActivationCode('GASINO_FREE_2026');
+                      onUnlock(true);
+                    }}
+                    className="text-[10px] font-black text-blue-600 hover:underline cursor-pointer"
+                  >
+                    (اعمال خودکار)
+                  </button>
+                </div>
+              </div>
+              
+              <div className="relative flex py-1 items-center">
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+                <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold">یا</span>
+                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
+              </div>
+
+              {/* Enter bypass activation code manually */}
+              <div className="flex gap-2 w-full">
+                <input 
+                  type="text"
+                  placeholder="کد فعال‌سازی تستی"
+                  value={activationCode}
+                  onChange={(e) => setActivationCode(e.target.value)}
+                  className="flex-1 px-4 py-3 bg-white dark:bg-slate-900 text-xs font-bold rounded-xl border border-slate-250 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-center uppercase font-mono"
+                />
+                <button 
+                  onClick={handleBypassCode}
+                  className="px-5 py-3 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-black text-xs rounded-xl active:scale-95 transition-all cursor-pointer shrink-0"
+                >
+                  تایید
+                </button>
+              </div>
+              {errorMessage && (
+                <p className="text-[10px] font-black text-rose-500 text-center mt-1">{errorMessage}</p>
+              )}
+            </motion.div>
           )}
         </div>
       </motion.div>
