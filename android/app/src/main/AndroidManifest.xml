@@ -36,6 +36,13 @@
     </application>
 
     <!-- Permissions -->
-
     <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- مجوز پرداخت درون‌برنامه‌ای کافه بازار -->
+    <uses-permission android:name="com.farsitel.bazaar.permission.PAY_THROUGH_BAZAAR" />
+
+    <!-- برای حل مشکل عدم شناسایی بازار در اندروید ۱۱ به بالا (Package Visibility Queries) -->
+    <queries>
+        <package android:name="com.farsitel.bazaar" />
+    </queries>
 </manifest>

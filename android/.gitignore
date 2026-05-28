@@ -23,11 +23,6 @@ out/
 .gradle/
 build/
 
-key.properties
-release-key.jks
-
-
-
 # Local configuration file (sdk path, etc)
 local.properties
 
@@ -104,3 +99,7 @@ app/src/main/assets/public
 app/src/main/assets/capacitor.config.json
 app/src/main/assets/capacitor.plugins.json
 app/src/main/res/xml/config.xml
+
+# Keystore and build properties files
+key.properties
+release-key.jks
