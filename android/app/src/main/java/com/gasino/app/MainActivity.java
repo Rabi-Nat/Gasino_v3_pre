@@ -114,14 +114,41 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void initiateBazaarPurchase(String productId) {
             if (mService == null) {
-                showToastOnUI("سرویس پرداخت درون‌برنامه‌ای بازار فعال نیست. لطفا مطمئن شوید برنامه کافه بازار روی گوشی نصب است.");
+                // تلاش مجدد برای اتصال به سرویس پرداخت کافه بازار
+                try {
+                    Intent serviceIntent = new Intent("com.farsitel.bazaar.service.InAppBillingService.BIND");
+                    serviceIntent.setPackage("com.farsitel.bazaar");
+                    boolean bound = bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
+                    if (bound) {
+                        showToastOnUI("در حال اتصال به بازار... لطفا ۱ ثانیه دیگر مجددا روی دکمه خرید بزنید.");
+                    } else {
+                        showToastOnUI("سرویس پرداخت بازار متصل نیست. لطفا مطمئن شوید برنامه کافه بازار روی گوشی شما نصب و فعال است.");
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    showToastOnUI("خطا در برقراری ارتباط مجدد با بازار: " + e.getMessage());
+                }
                 return;
             }
 
             try {
-                // Request a buy intent from Cafe Bazaar (API version 3, inapp product type)
+                // ابتدا بررسی محصول از نوع خرید معمولی (inapp)
                 Bundle buyIntentBundle = mService.getBuyIntent(3, getPackageName(), productId, "inapp", "gasino_user_payload");
                 int response = buyIntentBundle.getInt("RESPONSE_CODE");
+                
+                // اگر نوع محصول برای inapp معتبر نبود (مثلا اشتراک دوره‌ای subs در پنل بازار تعریف شده باشد)
+                if (response != 0 && response != 7) {
+                    try {
+                        Bundle subsIntentBundle = mService.getBuyIntent(3, getPackageName(), productId, "subs", "gasino_user_payload");
+                        int subsResponse = subsIntentBundle.getInt("RESPONSE_CODE");
+                        if (subsResponse == 0 || subsResponse == 7) {
+                            buyIntentBundle = subsIntentBundle;
+                            response = subsResponse;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
                 
                 if (response == 0) {
                     android.app.PendingIntent pendingIntent = buyIntentBundle.getParcelable("BUY_INTENT");
@@ -133,9 +160,9 @@ public class MainActivity extends BridgeActivity {
                             showToastOnUI("خطا در ارسال درخواست پرداخت به بازار");
                         }
                     }
-                } else if (response == 7) { // Already owned items
-                    showToastOnUI("شما این اشتراک را قبلاً تهیه کرده‌اید.");
-                    // Restore/Unlock automatically
+                } else if (response == 7) { // محصول از قبل خریداری شده است
+                    showToastOnUI("اشتراک طلایی شما فعال گردید (از قبل خریداری شده بود). 🎉");
+                    // همگام‌سازی و فعال‌سازی اشتراک در فرانت‌اند
                     runOnUiThread(() -> {
                         try {
                             WebView webView = MainActivity.this.getBridge().getWebView();
@@ -145,7 +172,7 @@ public class MainActivity extends BridgeActivity {
                         }
                     });
                 } else {
-                    showToastOnUI("کد خطا از بازار: " + response);
+                    showToastOnUI("عدم امکان خرید از بازار. کد خطا: " + response);
                 }
             } catch (RemoteException e) {
                 e.printStackTrace();

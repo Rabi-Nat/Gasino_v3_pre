@@ -44,5 +44,8 @@
     <!-- برای حل مشکل عدم شناسایی بازار در اندروید ۱۱ به بالا (Package Visibility Queries) -->
     <queries>
         <package android:name="com.farsitel.bazaar" />
+        <intent>
+            <action android:name="com.farsitel.bazaar.service.InAppBillingService.BIND" />
+        </intent>
     </queries>
 </manifest>
