@@ -45,7 +45,7 @@
     <queries>
         <package android:name="com.farsitel.bazaar" />
         <intent>
-            <action android:name="com.farsitel.bazaar.service.InAppBillingService.BIND" />
+            <action android:name="ir.cafebazaar.billing.BIND" />
         </intent>
     </queries>
 </manifest>
