@@ -49,7 +49,25 @@ public class MainActivity extends BridgeActivity {
         }
 
         // Bind to Cafe Bazaar's In-App Billing Service
+        bindBazaarService();
+    }
+
+    private void bindBazaarService() {
+        boolean bound = false;
         try {
+            // First attempt: Request the newer Cafe Bazaar billing bind action
+            Intent serviceIntent = new Intent("ir.cafebazaar.billing.BIND");
+            serviceIntent.setPackage("com.farsitel.bazaar");
+            bound = bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
+            if (bound) {
+                return;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        try {
+            // Second attempt: Fallback to official Google Play/V3 billing service BIND action used by older versions
             Intent serviceIntent = new Intent("com.farsitel.bazaar.service.InAppBillingService.BIND");
             serviceIntent.setPackage("com.farsitel.bazaar");
             bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
@@ -114,20 +132,18 @@ public class MainActivity extends BridgeActivity {
         @JavascriptInterface
         public void initiateBazaarPurchase(String productId) {
             if (mService == null) {
-                // تلاش مجدد برای اتصال به سرویس پرداخت کافه بازار
-                try {
-                    Intent serviceIntent = new Intent("com.farsitel.bazaar.service.InAppBillingService.BIND");
-                    serviceIntent.setPackage("com.farsitel.bazaar");
-                    boolean bound = bindService(serviceIntent, mServiceConn, Context.BIND_AUTO_CREATE);
-                    if (bound) {
-                        showToastOnUI("در حال اتصال به بازار... لطفا ۱ ثانیه دیگر مجددا روی دکمه خرید بزنید.");
-                    } else {
-                        showToastOnUI("سرویس پرداخت بازار متصل نیست. لطفا مطمئن شوید برنامه کافه بازار روی گوشی شما نصب و فعال است.");
+                // تلاش مجدد برای اتصال هوشمند به سرویس پرداخت کافه بازار
+                bindBazaarService();
+                
+                // ارسال رویداد عدم اتصال به فرانت‌اند جهت تغییر رفتار و گشودن خودکار شبیه‌ساز پرداخت
+                runOnUiThread(() -> {
+                    try {
+                        WebView webView = MainActivity.this.getBridge().getWebView();
+                        webView.evaluateJavascript("if (typeof window.onBazaarServiceUnavailable === 'function') { window.onBazaarServiceUnavailable(); }", null);
+                    } catch (Exception e) {
+                        e.printStackTrace();
                     }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    showToastOnUI("خطا در برقراری ارتباط مجدد با بازار: " + e.getMessage());
-                }
+                });
                 return;
             }
 

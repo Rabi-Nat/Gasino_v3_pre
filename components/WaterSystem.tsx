@@ -828,7 +828,7 @@ export const WaterSystem: React.FC = () => {
                             const strokeWidth = radius > 10 ? 1.5 : 1;
                             const innerDotRadius = Math.max(1.5, radius * 0.22);
 
-                            return Array.from({ length: sprinklerResults.nL }).map((_, colIndex) => {
+                            return Array.from({ length: sprinklerResults.nL }).flatMap((_, colIndex) => {
                               const stepX = 420 / sprinklerResults.nL;
                               const x = 40 + stepX / 2 + colIndex * stepX;
                               

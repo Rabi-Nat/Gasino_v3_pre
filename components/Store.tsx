@@ -63,6 +63,17 @@ const PRODUCTS: Product[] = [
   { id: 'p-3-sd', name: 'لوله ۳ اینچ درزدار', unit: 'branch', category: 'pipe' },
   { id: 'p-4-sd', name: 'لوله ۴ اینچ درزدار', unit: 'branch', category: 'pipe' },
 
+  // Pipes Mannesmann (مانیسمان)
+  { id: 'p-12-ms', name: 'لوله ۱/۲ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-34-ms', name: 'لوله ۳/۴ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-1-ms', name: 'لوله ۱ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-114-ms', name: 'لوله ۱ ۱/۴ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-112-ms', name: 'لوله ۱ ۱/۲ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-2-ms', name: 'لوله ۲ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-212-ms', name: 'لوله ۲ ۱/۲ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-3-ms', name: 'لوله ۳ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+  { id: 'p-4-ms', name: 'لوله ۴ اینچ مانیسمان', unit: 'branch', category: 'pipe' },
+
   // Elbows Maniseman (مانیسمان)
   { id: 'e-12-ms', name: 'زانو ۱/۲ اینچ مانیسمان', unit: 'piece', category: 'elbow' },
   { id: 'e-34-ms', name: 'زانو ۳/۴ اینچ مانیسمان', unit: 'piece', category: 'elbow' },
@@ -235,6 +246,7 @@ const PRODUCTS: Product[] = [
   { id: 'acc-10', name: 'مل', unit: 'piece', category: 'accessory' },
   { id: 'acc-11', name: 'لوله سفید یک متری', unit: 'piece', category: 'accessory' },
   { id: 'acc-12', name: 'لوازم کنتور (چپقی-زانو دنده ای-نیپل-مهره ماسوره)', unit: 'piece', category: 'accessory' },
+  { id: 'acc-13', name: 'گیج تست فشار', unit: 'piece', category: 'accessory' },
 ];
 
 interface CartItem {
@@ -247,6 +259,7 @@ export const Store: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showInvoiced, setShowInvoice] = useState(false);
   const [includeApi, setIncludeApi] = useState(false);
+  const [includeMannesmannPipe, setIncludeMannesmannPipe] = useState(false);
   const [includeManiseman, setIncludeManiseman] = useState(false);
   const [includeYellowClamp, setIncludeYellowClamp] = useState(false);
 
@@ -301,7 +314,8 @@ export const Store: React.FC = () => {
 
     // Otherwise, respect the toggles
     if (p.id.endsWith('-api') && !includeApi) return false;
-    if (p.id.endsWith('-ms') && !includeManiseman) return false;
+    if (p.category === 'pipe' && p.id.endsWith('-ms') && !includeMannesmannPipe) return false;
+    if (p.category !== 'pipe' && p.id.endsWith('-ms') && !includeManiseman) return false;
     
     // Clamp logic: Switch between Yellow and Two-leg
     if (p.category === 'clamp') {
@@ -314,14 +328,37 @@ export const Store: React.FC = () => {
     return true;
   });
 
-  const categories = [
+  interface ToggleInfo {
+    label: string;
+    value: boolean;
+    set: (val: boolean) => void;
+  }
+
+  const categories: {
+    id: string;
+    label: string;
+    icon: React.ComponentType<any>;
+    toggleLabel?: string;
+    toggleValue?: boolean;
+    setToggle?: (val: boolean) => void;
+    toggles?: ToggleInfo[];
+  }[] = [
     { 
       id: 'pipe', 
       label: 'لوله‌ها', 
       icon: Cylinder,
-      toggleLabel: 'نمایش لوله‌های API (توکار)',
-      toggleValue: includeApi,
-      setToggle: setIncludeApi
+      toggles: [
+        {
+          label: 'نمایش لوله‌های API (توکار)',
+          value: includeApi,
+          set: setIncludeApi
+        },
+        {
+          label: 'نمایش لوله‌های مانیسمان',
+          value: includeMannesmannPipe,
+          set: setIncludeMannesmannPipe
+        }
+      ]
     },
     { 
       id: 'elbow', 
@@ -957,6 +994,7 @@ export const Store: React.FC = () => {
             const catProducts = filteredProducts.filter(p => p.category === cat.id);
             const isExpanded = expandedCategories.includes(cat.id);
             const hasToggle = !!cat.toggleLabel;
+            const hasToggles = !!cat.toggles && cat.toggles.length > 0;
 
             if (catProducts.length === 0 && searchTerm !== '') return null;
 
@@ -987,7 +1025,28 @@ export const Store: React.FC = () => {
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
                     >
                       <div className="px-5 pb-5 border-t border-slate-50 pt-4">
-                        {hasToggle && (
+                        {hasToggles && (
+                          <div className="flex flex-wrap justify-end gap-x-4 gap-y-2 mb-4">
+                            {cat.toggles?.map((t, idx) => (
+                              <label key={idx} className="flex items-center gap-2 cursor-pointer group">
+                                <div className="relative inline-flex items-center">
+                                  <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={t.value}
+                                    onChange={(e) => t.set(e.target.checked)}
+                                  />
+                                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                                </div>
+                                <span className="text-xs font-bold text-slate-500 group-hover:text-blue-600 transition-colors">
+                                  {t.label}
+                                </span>
+                              </label>
+                            ))}
+                          </div>
+                        )}
+
+                        {hasToggle && !hasToggles && (
                             <div className="flex justify-end mb-4">
                                 <label className="flex items-center gap-2 cursor-pointer group">
                                     <div className="relative inline-flex items-center">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
+  X,
   Flame, 
   Wind, 
   Gauge, 
@@ -57,9 +58,17 @@ import { PlumbingSystem } from './components/PlumbingSystem';
 import { MechanicalHvac } from './components/MechanicalHvac';
 import { UserGuide } from './components/UserGuide';
 import ClassicLanding from './components/ClassicLanding';
+import { AdsSection } from './components/AdsSection';
 
 type SectionId = 'gas' | 'fire' | 'plumbing' | 'hvac';
 type TabId = 'pipe' | 'ventilation' | 'meter' | 'valve' | 'safety' | 'price' | 'contact' | 'store' | 'test' | 'water' | 'firepipe' | 'extinguisher' | 'pump' | 'plumbing' | 'plumbing_reservoir' | 'plumbing_rainwater' | 'plumbing_test' | 'hvac_load' | 'hvac_duct' | 'hvac_pipe' | 'hvac_test';
+
+const sectionBackgrounds: Record<SectionId, string> = {
+  gas: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=1200&q=80',
+  fire: 'https://images.unsplash.com/photo-1516383274235-5f42d6c6426d?auto=format&fit=crop&w=1200&q=80',
+  plumbing: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=1200&q=80',
+  hvac: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=1200&q=80',
+};
 
 const App: React.FC = () => {
   const [activeSection, setActiveSection] = useState<SectionId>('gas');
@@ -69,78 +78,49 @@ const App: React.FC = () => {
   const [showGuide, setShowGuide] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [showSectionSelector, setShowSectionSelector] = useState(false);
   
-  // کلید عمومی پرداخت درون‌برنامه‌ای کافه بازار جهت صحت‌سنجی تراکنش‌ها
-  const BAZAAR_PUBLIC_KEY = "MIHNMA0GCSqGSIb3DQEBAQUAA4G7ADCBtwKBrwClquaLAedQqYXaL/MallnaDw1NE3QT7hZwxVkqrKEolbKVlz4cTiso01+lVonL0hEkgacQAI7mCdp4qiicjIHHkZnQ7naRCbqbQjhW+m6RkKg1LU+HbWwRzyPLSU2q46yMAkVybD9320wVqkDBG9UDA3bY64zBBNDM98YagaefMy5NQdVrs+5fs1dc2yXsB1gFtCAY7dmpB6AwyUNeLa2p+UrKfX5UzmdmopmgMkUCAwEAAQ==";
+  // Quick Dashboard Unit Converter States
+  const [quickConvType, setQuickConvType] = useState<'pressure' | 'power'>('pressure');
+  const [quickConvInput, setQuickConvInput] = useState<string>('1');
+  const [quickConvSrc, setQuickConvSrc] = useState<string>('Bar');
+  const [quickConvDst, setQuickConvDst] = useState<string>('PSI');
 
-  // Premium subscription state for Cafe Bazaar integration
-  const [isPremium, setIsPremium] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') {
-      const storedVal = localStorage.getItem('isPremium');
-      if (storedVal === 'true') {
-        const expiry = localStorage.getItem('premium_expiry');
-        if (expiry) {
-          const expiryTime = parseInt(expiry, 10);
-          if (Date.now() < expiryTime) {
-            return true;
-          }
-        }
-      }
-      
-      // Fallback check in Android capacitor bridge if available
-      const bridge = (window as any).BazaarBridge;
-      if (bridge && typeof bridge.checkPremiumStatus === 'function') {
-        try {
-          return bridge.checkPremiumStatus();
-        } catch (_) {}
-      }
+  const handleQuickConvTypeChange = (type: 'pressure' | 'power') => {
+    setQuickConvType(type);
+    if (type === 'pressure') {
+      setQuickConvSrc('Bar');
+      setQuickConvDst('PSI');
+    } else {
+      setQuickConvSrc('kW');
+      setQuickConvDst('BTU');
     }
-    return false;
-  });
-
-  // Check if a tab is restricted / locked under Café Bazaar rules
-  const isTabLocked = (section: SectionId, tabId: TabId): boolean => {
-    if (isPremium) return false;
-
-    // Contact, Store, and Price are always FREE helper tabs
-    if (['contact', 'store', 'price'].includes(tabId)) {
-      return false;
-    }
-
-    if (section === 'gas') {
-      // Natural Gas: Completely free and open access
-      return false;
-    }
-    if (section === 'fire') {
-      // Fire safety: ONLY Water ("مخزن و دبی" - water tank calculation) is FREE
-      if (tabId === 'water') return false;
-      return true;
-    }
-    if (section === 'plumbing') {
-      // Plumbing: ONLY plumbing ("آبرسانی و فاضلاب" - SFU calculation) is FREE
-      if (tabId === 'plumbing') return false;
-      return true;
-    }
-    if (section === 'hvac') {
-      // HVAC: ONLY hvac_load ("بارهای برودتی حرارتی" - load/ventilation calculation) is FREE
-      if (tabId === 'hvac_load') return false;
-      return true;
-    }
-
-    return false;
   };
 
-  useEffect(() => {
-    // Expose purchase callback on window for native Android Java activity
-    (window as any).onBazaarPurchaseSuccess = (purchaseToken: string) => {
-      const oneYear = 365 * 24 * 60 * 60 * 1000;
-      localStorage.setItem('isPremium', 'true');
-      localStorage.setItem('premium_expiry', (Date.now() + oneYear).toString());
-      localStorage.setItem('bazaar_purchase_token', purchaseToken);
-      setIsPremium(true);
-      showToast('اشتراک ۱ ساله طلایی گازینو با موفقیت فعال شد! 🎉🌟');
-    };
-  }, []);
+  const getQuickConverted = () => {
+    const val = parseFloat(quickConvInput);
+    if (isNaN(val)) return '0';
+    if (quickConvType === 'pressure') {
+      const factors: Record<string, number> = {
+        'Bar': 1,
+        'PSI': 14.5038,
+        'KPa': 100
+      };
+      const base = val / factors[quickConvSrc];
+      const res = base * factors[quickConvDst];
+      return res.toFixed(3).replace(/\.?0+$/, "");
+    } else {
+      const factors: Record<string, number> = {
+        'kW': 1,
+        'BTU': 3412.14,
+        'kcal': 860.421
+      };
+      const base = val / factors[quickConvSrc];
+      const res = base * factors[quickConvDst];
+      return res.toFixed(3).replace(/\.?0+$/, "");
+    }
+  };
+
 
   const [landingStyle, setLandingStyle] = useState<'creative' | 'classic'>(() => {
     if (typeof window !== 'undefined') {
@@ -155,6 +135,26 @@ const App: React.FC = () => {
     return false;
   });
 
+  const [creativeClicks, setCreativeClicks] = useState(0);
+  const handleCreativeBrandClick = () => {
+    const nextClicks = creativeClicks + 1;
+    if (nextClicks >= 6) {
+      setCreativeClicks(0);
+      try {
+        const isCurrentlyUnlocked = localStorage.getItem('gasino_admin_unlocked') === 'true';
+        if (isCurrentlyUnlocked) {
+          localStorage.removeItem('gasino_admin_unlocked');
+          window.dispatchEvent(new CustomEvent('gasino_admin_locked'));
+        } else {
+          localStorage.setItem('gasino_admin_unlocked', 'true');
+          window.dispatchEvent(new CustomEvent('gasino_admin_unlocked'));
+        }
+      } catch (e) {}
+    } else {
+      setCreativeClicks(nextClicks);
+    }
+  };
+
   useEffect(() => {
     if (isDark && !hasSelectedSection) {
       document.documentElement.classList.add('dark');
@@ -163,6 +163,53 @@ const App: React.FC = () => {
     }
     localStorage.setItem('theme', isDark ? 'dark' : 'light');
   }, [isDark, hasSelectedSection]);
+
+  // Support internal app links from ads / remote config
+  useEffect(() => {
+    const handleNavigation = (e: Event) => {
+      const customEvent = e as CustomEvent<{ path: string }>;
+      const path = customEvent.detail?.path?.trim()?.toLowerCase();
+      if (!path) return;
+
+      const tabToSectionMap: Record<string, { section: SectionId; tab: TabId }> = {
+        'pipe': { section: 'gas', tab: 'pipe' },
+        'ventilation': { section: 'gas', tab: 'ventilation' },
+        'meter': { section: 'gas', tab: 'meter' },
+        'valve': { section: 'gas', tab: 'valve' },
+        'safety': { section: 'gas', tab: 'safety' },
+        'store': { section: 'gas', tab: 'store' },
+        'test': { section: 'gas', tab: 'test' },
+        'price': { section: 'gas', tab: 'price' },
+        'contact': { section: 'gas', tab: 'contact' },
+        
+        'water': { section: 'fire', tab: 'water' },
+        'firepipe': { section: 'fire', tab: 'firepipe' },
+        'pump': { section: 'fire', tab: 'pump' },
+        'extinguisher': { section: 'fire', tab: 'extinguisher' },
+        
+        'plumbing': { section: 'plumbing', tab: 'plumbing' },
+        'plumbing_reservoir': { section: 'plumbing', tab: 'plumbing_reservoir' },
+        'plumbing_rainwater': { section: 'plumbing', tab: 'plumbing_rainwater' },
+        'plumbing_test': { section: 'plumbing', tab: 'plumbing_test' },
+        
+        'hvac_load': { section: 'hvac', tab: 'hvac_load' },
+        'hvac_duct': { section: 'hvac', tab: 'hvac_duct' },
+        'hvac_pipe': { section: 'hvac', tab: 'hvac_pipe' },
+        'hvac_test': { section: 'hvac', tab: 'hvac_test' }
+      };
+
+      const match = tabToSectionMap[path];
+      if (match) {
+        setActiveSection(match.section);
+        setActiveTab(match.tab);
+        setHasSelectedSection(true);
+      }
+    };
+    window.addEventListener('gasino_navigate', handleNavigation);
+    return () => {
+      window.removeEventListener('gasino_navigate', handleNavigation);
+    };
+  }, []);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -284,6 +331,51 @@ const App: React.FC = () => {
   const scrollPosRef = useRef<number>(0);
   const [isInteracting, setIsInteracting] = useState(false);
   const interactionTimer = useRef<NodeJS.Timeout | null>(null);
+
+  const landingContainerRef = useRef<HTMLDivElement>(null);
+
+  // Slow automatic scroll to top when returning to the landing page or on load
+  useEffect(() => {
+    if (!hasSelectedSection) {
+      const container = landingContainerRef.current;
+      if (!container) return;
+
+      let animationFrameId: number;
+      let userInteracted = false;
+
+      const onInteraction = () => {
+        userInteracted = true;
+      };
+
+      container.addEventListener('wheel', onInteraction, { passive: true });
+      container.addEventListener('touchstart', onInteraction, { passive: true });
+      container.addEventListener('mousedown', onInteraction, { passive: true });
+
+      const smoothScrollToTop = () => {
+        if (!container || userInteracted) return;
+        const currentScroll = container.scrollTop;
+        if (currentScroll > 0) {
+          const step = Math.max(1.5, currentScroll / 24); 
+          container.scrollTop = currentScroll - step;
+          animationFrameId = requestAnimationFrame(smoothScrollToTop);
+        }
+      };
+
+      const timer = setTimeout(() => {
+        animationFrameId = requestAnimationFrame(smoothScrollToTop);
+      }, 150);
+
+      return () => {
+        clearTimeout(timer);
+        cancelAnimationFrame(animationFrameId);
+        if (container) {
+          container.removeEventListener('wheel', onInteraction);
+          container.removeEventListener('touchstart', onInteraction);
+          container.removeEventListener('mousedown', onInteraction);
+        }
+      };
+    }
+  }, [hasSelectedSection, landingStyle]);
 
   // Synchronize scrollPosRef with manual user scrolls
   useEffect(() => {
@@ -529,7 +621,7 @@ const App: React.FC = () => {
 
     if (landingStyle === 'classic') {
       return (
-        <div className="h-screen w-full bg-[#f8fafc] dark:bg-[#070b13] flex flex-col px-4 pb-16 relative font-sans overflow-y-auto">
+        <div ref={landingContainerRef} className="h-screen w-full max-w-full bg-[#f8fafc] dark:bg-[#070b13] flex flex-col px-4 pb-16 relative font-sans overflow-y-auto overflow-x-hidden">
           {/* Settings Floating Button */}
           <div className="fixed left-4 top-4 md:left-8 md:top-8 z-55 no-print">
             <button 
@@ -617,25 +709,12 @@ const App: React.FC = () => {
                       <span className="text-xs font-black text-slate-700 dark:text-slate-200">امتیاز به برنامه</span>
                     </button>
 
-                    {isPremium && (
-                      <>
-                        <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5" />
-                        <button
-                          onClick={() => {
-                            localStorage.removeItem('isPremium');
-                            localStorage.removeItem('premium_expiry');
-                            localStorage.removeItem('bazaar_purchase_token');
-                            setIsPremium(false);
-                            showToast('وضعیت اشتراک ریست شد. تمام قفل‌ها مجدد فعال شدند! 🔒');
-                            setShowSettings(false);
-                          }}
-                          className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all font-black cursor-pointer text-right"
-                        >
-                          <Lock className="w-4 h-4 shrink-0" />
-                          <span className="text-xs">ریست وضعیت اشتراک (تست)</span>
-                        </button>
-                      </>
-                    )}
+                    <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5" />
+
+                    {/* Ads Admin Trigger */}
+                    <AdsSection variant="admin_trigger" onShowToast={showToast} isDark={isDark} />
+
+
                   </motion.div>
                 </>
               )}
@@ -671,7 +750,7 @@ const App: React.FC = () => {
     }
 
     return (
-      <div className="h-screen w-full bg-[#f8fafc] dark:bg-[#070b13] flex flex-col items-center px-4 pb-16 relative font-sans overflow-y-auto">
+      <div ref={landingContainerRef} className="h-screen w-full max-w-full bg-[#f8fafc] dark:bg-[#070b13] flex flex-col items-center px-4 pb-16 relative font-sans overflow-y-auto overflow-x-hidden">
         
         {/* Settings Floating Button */}
         <div className="fixed left-4 top-4 md:left-8 md:top-8 z-55 no-print">
@@ -760,25 +839,12 @@ const App: React.FC = () => {
                     <span className="text-xs font-black text-slate-700 dark:text-slate-200">امتیاز به برنامه</span>
                   </button>
 
-                  {isPremium && (
-                    <>
-                      <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5" />
-                      <button
-                        onClick={() => {
-                          localStorage.removeItem('isPremium');
-                          localStorage.removeItem('premium_expiry');
-                          localStorage.removeItem('bazaar_purchase_token');
-                          setIsPremium(false);
-                          showToast('وضعیت اشتراک ریست شد. تمام قفل‌ها مجدد فعال شدند! 🔒');
-                          setShowSettings(false);
-                        }}
-                        className="flex items-center gap-2.5 w-full px-3 py-2.5 rounded-xl text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 transition-all font-black cursor-pointer text-right"
-                      >
-                        <Lock className="w-4 h-4 shrink-0" />
-                        <span className="text-xs">ریست وضعیت اشتراک (تست)</span>
-                      </button>
-                    </>
-                  )}
+                  <div className="h-[1px] bg-slate-100 dark:bg-slate-700 my-0.5" />
+
+                  {/* Ads Admin Trigger */}
+                  <AdsSection variant="admin_trigger" onShowToast={showToast} isDark={isDark} />
+
+
                 </motion.div>
               </>
             )}
@@ -794,8 +860,13 @@ const App: React.FC = () => {
         <div className="absolute bottom-10 left-1/4 w-96 h-96 bg-emerald-500/3 rounded-full blur-[100px] pointer-events-none" />
 
         {/* Animated Brand Header */}
-        <div className="sticky top-0 w-full pt-4 pb-3 mb-2 text-center z-40 bg-[#f8fafc]/90 dark:bg-[#070b13]/90 backdrop-blur-md transition-colors duration-300 flex justify-center animate-none" dir="ltr">
-          <div className="relative inline-block px-6 py-1 cursor-default select-none">
+        <div className="sticky top-0 w-full pt-2 pb-1.5 mb-1 text-center z-40 bg-[#f8fafc]/90 dark:bg-[#070b13]/90 backdrop-blur-md transition-colors duration-300 flex justify-center animate-none" dir="ltr">
+          <motion.div 
+            whileTap={{ scale: 0.96 }}
+            onClick={handleCreativeBrandClick}
+            className="relative inline-block px-4 py-0.5 cursor-pointer select-none"
+            title="ضربه بزنید"
+          >
             {/* Ambient colorful backdrop glow (slowly breathing and rotating) */}
             <motion.div 
               animate={{ 
@@ -808,7 +879,7 @@ const App: React.FC = () => {
                 repeat: Infinity, 
                 ease: "linear" 
               }}
-              className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-emerald-500/10 to-rose-500/10 rounded-full blur-[45px] pointer-events-none" 
+              className="absolute inset-0 bg-gradient-to-r from-blue-500/10 via-emerald-500/10 to-rose-500/10 rounded-full blur-[35px] pointer-events-none" 
             />
             
             <motion.div
@@ -824,7 +895,7 @@ const App: React.FC = () => {
                   }
                 }
               }}
-              className="flex items-center justify-center gap-[3px] font-sans text-5xl md:text-7xl font-black tracking-tight"
+              className="flex items-center justify-center gap-[3px] font-sans text-4xl md:text-5xl font-black tracking-tight"
             >
               {["G", "a", "s", "i", "n", "o"].map((letter, idx) => {
                 // Elegant transitioning gradient segments
@@ -878,78 +949,162 @@ const App: React.FC = () => {
                 );
               })}
             </motion.div>
-          </div>
+          </motion.div>
         </div>
 
-        {/* Constrained Visually-focused Vertical Stack Menu list */}
+        {/* Constrained Visually-focused Modern Bento Dashboard */}
         <motion.div 
           variants={containerVariants}
           initial="hidden"
           animate="show"
-          className="w-full max-w-xl flex flex-col gap-4 relative z-10" 
+          className="w-full max-w-5xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10 mt-6 px-2 md:px-0" 
           dir="rtl"
         >
-          {mainMenuItems.map((menuItem) => {
+          {/* Bento Menu Items Grid */}
+          {mainMenuItems.map((menuItem, idx) => {
             const IconComp = menuItem.icon;
-            const isPlaceholder = menuItem.id.endsWith('_placeholder');
             
+            // Layout placement mapping with beautifully compacted heights matching classic landing sizes
+            const bentoColClasses: Record<string, string> = {
+              gas: 'md:col-span-2 lg:col-span-2 h-38',
+              fire: 'md:col-span-1 lg:col-span-1 h-38',
+              plumbing: 'md:col-span-1 lg:col-span-1 h-38',
+              hvac: 'md:col-span-2 lg:col-span-2 h-38',
+              store: 'md:col-span-1 lg:col-span-1 h-28',
+              contact: 'md:col-span-1 lg:col-span-1 h-28',
+              guide: 'md:col-span-1 lg:col-span-1 h-28'
+            };
+
+            const bentoImages: Record<string, string> = {
+              gas: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=800&q=80',
+              fire: 'https://images.unsplash.com/photo-1516383274235-5f42d6c6426d?auto=format&fit=crop&w=800&q=80',
+              plumbing: 'https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=800&q=80',
+              hvac: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=800&q=80',
+              store: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
+              contact: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=800&q=80',
+              guide: 'https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=800&q=80'
+            };
+
+            const systemHalos: Record<string, string> = {
+              gas: 'group-hover:shadow-[0_0_35px_rgba(37,99,235,0.22)] border-blue-500/20',
+              fire: 'group-hover:shadow-[0_0_35px_rgba(244,63,94,0.22)] border-rose-500/20',
+              plumbing: 'group-hover:shadow-[0_0_35px_rgba(6,182,212,0.22)] border-cyan-500/20',
+              hvac: 'group-hover:shadow-[0_0_35px_rgba(245,158,11,0.22)] border-amber-500/20',
+              store: 'group-hover:shadow-[0_0_35px_rgba(16,185,129,0.22)] border-emerald-500/20',
+              contact: 'group-hover:shadow-[0_0_35px_rgba(139,92,246,0.22)] border-violet-500/20',
+              guide: 'group-hover:shadow-[0_0_35px_rgba(14,165,233,0.22)] border-sky-500/20'
+            };
+
+            const colClass = bentoColClasses[menuItem.id] || 'col-span-1 h-36';
+            const bgImage = bentoImages[menuItem.id] || '';
+            const activeHalo = systemHalos[menuItem.id] || 'group-hover:shadow-lg';
+
+            const modernBadgeStyles: Record<string, string> = {
+              gas: 'bg-blue-500/25 text-blue-200 border-blue-400/40',
+              fire: 'bg-rose-500/25 text-rose-200 border-rose-400/40',
+              plumbing: 'bg-cyan-500/25 text-cyan-200 border-cyan-400/40',
+              hvac: 'bg-amber-500/25 text-amber-200 border-amber-400/40',
+              store: 'bg-emerald-500/25 text-emerald-200 border-emerald-400/40',
+              contact: 'bg-violet-500/25 text-violet-200 border-violet-400/40',
+              guide: 'bg-sky-500/25 text-sky-200 border-sky-400/40'
+            };
+
+            const modernIconColors: Record<string, string> = {
+              gas: 'text-blue-400',
+              fire: 'text-rose-400',
+              plumbing: 'text-cyan-400',
+              hvac: 'text-amber-400',
+              store: 'text-emerald-400',
+              contact: 'text-violet-400',
+              guide: 'text-sky-400'
+            };
+
             return (
               <motion.div
                 key={menuItem.id}
                 variants={itemVariants}
-                style={{ backgroundColor: isDark ? 'rgba(30, 41, 59, 0.9)' : menuItem.glowColor }}
                 onClick={menuItem.action}
-                className={`group relative overflow-hidden p-5 md:p-6 rounded-[28px] border ${menuItem.borderClass} dark:border-slate-700/80 dark:hover:border-slate-600 ${menuItem.bgClass} cursor-pointer transition-all duration-300 shadow-sm hover:shadow-md flex items-center justify-between gap-4`}
+                className={`group relative overflow-hidden rounded-[2rem] border border-slate-200/40 dark:border-slate-800 bg-[#f8fafc] dark:bg-[#0d1525] dark:hover:border-slate-750 transition-all duration-500 hover:scale-[1.012] cursor-pointer ${colClass} ${activeHalo}`}
               >
-                {/* Large Subtle Icon Watermark in the background corner */}
-                <div className="absolute left-[-16px] bottom-[-20px] opacity-[0.03] group-hover:opacity-[0.07] transition-all duration-500 pointer-events-none rotate-[-15deg]">
-                  <IconComp className="w-32 h-32 text-current" />
-                </div>
+                {/* Visual Cover Image */}
+                <div 
+                  className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+                  style={{ backgroundImage: `url('${bgImage}')` }}
+                />
+
+                {/* Dark Cinematic Vignette/Glassmorphism Overlay */}
+                <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/80 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+
+                {/* Radial Light Leak / Halo at corner on hover */}
+                <div 
+                  className="absolute inset-0 z-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-500 blur-2xl"
+                  style={{ 
+                    background: menuItem.id === 'gas' ? 'radial-gradient(circle at 50% 100%, rgba(59,130,246,0.18), transparent 60%)' :
+                                menuItem.id === 'fire' ? 'radial-gradient(circle at 50% 100%, rgba(244,63,94,0.18), transparent 60%)' :
+                                menuItem.id === 'plumbing' ? 'radial-gradient(circle at 50% 100%, rgba(6,182,212,0.18), transparent 60%)' :
+                                menuItem.id === 'hvac' ? 'radial-gradient(circle at 50% 100%, rgba(245,158,11,0.18), transparent 60%)' :
+                                menuItem.id === 'store' ? 'radial-gradient(circle at 50% 100%, rgba(16,185,129,0.18), transparent 60%)' :
+                                menuItem.id === 'contact' ? 'radial-gradient(circle at 50% 100%, rgba(139,92,246,0.18), transparent 60%)' :
+                                'radial-gradient(circle at 50% 100%, rgba(14,165,233,0.18), transparent 60%)'
+                  }} 
+                />
+
+                {/* Blueprint grid overlay lines (subtle blueprint texture) */}
+                <div className="absolute inset-0 z-10 opacity-[0.03] group-hover:opacity-[0.05] bg-[size:24px_24px] bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] select-none pointer-events-none transition-all duration-500" />
 
                 {/* English Watermark Text */}
-                <div className="absolute left-4 top-2 text-[8px] font-black tracking-widest text-[#94a3b8]/15 dark:text-[#94a3b8]/10 font-mono select-none pointer-events-none hidden md:block">
+                <div className="absolute left-6 top-4.5 text-[8px] font-black tracking-widest text-[#94a3b8]/20 font-mono select-none pointer-events-none">
                   {menuItem.watermarkText}
                 </div>
 
-                {/* Left Side Content - Standard Meta & Chevron */}
-                <div className="flex flex-col items-start text-right z-10 flex-1 pl-2">
-                  <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
-                    <h3 className={`text-base font-black ${isPlaceholder ? 'text-slate-500' : 'text-slate-800 dark:text-slate-200 group-hover:text-slate-950 dark:group-hover:text-white'} transition-colors`}>
-                      {menuItem.title}
-                    </h3>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${menuItem.badgeColor} dark:bg-slate-700 dark:text-slate-200 dark:border-slate-600`}>
+                {/* Main Card Content Layer with optimized sizing for smaller heights */}
+                <div className="absolute inset-0 z-20 p-4 md:p-5 flex flex-col justify-between items-start text-right">
+                  {/* Top Overlay Badge Tag & Icon Row */}
+                  <div className="flex items-center justify-between w-full">
+                    {/* Glowing Icon Container */}
+                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center border transition-all duration-300 bg-white/15 shadow-lg border-white/20 ${modernIconColors[menuItem.id] || 'text-white'} group-hover:scale-110 group-hover:rotate-3`}>
+                      <IconComp className="w-5 h-5 text-current" />
+                    </div>
+                    
+                    <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black border backdrop-blur-md ${modernBadgeStyles[menuItem.id] || 'bg-white/10 text-white border-white/20'}`}>
                       {menuItem.badge}
                     </span>
                   </div>
-                  
-                  <p className="text-slate-400 dark:text-slate-350 text-[11px] leading-relaxed font-bold max-w-md">
-                    {menuItem.description}
-                  </p>
-                  
-                  <span className="text-[9px] text-slate-350 dark:text-slate-400 font-black mt-1.5 tracking-wide uppercase font-mono block">
-                    {menuItem.englishTitle}
-                  </span>
-                </div>
 
-                {/* Right Side Rounded Icon Box */}
-                <div className="shrink-0 z-10 flex flex-col items-center gap-2">
-                  <motion.div 
-                    whileHover={isPlaceholder ? {} : { scale: 1.1, rotate: 5 }}
-                    whileTap={isPlaceholder ? {} : { scale: 0.95 }}
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300 ${
-                      isPlaceholder 
-                        ? 'bg-slate-100 dark:bg-slate-800 text-slate-400/50' 
-                        : `bg-white dark:bg-slate-800 ${menuItem.colorClass} dark:text-[#f8fafc] shadow-sm border border-slate-200/50 dark:border-slate-700 group-hover:bg-slate-900 dark:group-hover:bg-slate-700 group-hover:text-white dark:group-hover:text-white group-hover:border-slate-900 dark:group-hover:border-slate-700 group-hover:shadow-md`
-                    }`}
-                  >
-                    <IconComp className="w-5 h-5" />
-                  </motion.div>
+                  {/* Text descriptions at bottom */}
+                  <div className="w-full">
+                    {/* Persian title */}
+                    <h3 className="text-sm md:text-base font-black text-white group-hover:text-blue-200 transition-colors drop-shadow-md">
+                      {menuItem.title}
+                    </h3>
+
+                    {/* Description Paragraph (Line clamped to 1-line for superb clean look on half-size cards) */}
+                    <p className="text-slate-300 dark:text-slate-300 text-[10px] leading-relaxed font-bold mt-0.5 line-clamp-1 max-w-lg">
+                      {menuItem.description}
+                    </p>
+
+                    {/* Technical Tag and arrow action link */}
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10">
+                      <span className="text-[7.5px] font-black text-slate-400 uppercase tracking-widest font-mono">
+                        {menuItem.englishTitle}
+                      </span>
+                      <div className="flex items-center gap-1 text-[10px] font-black text-white/80 group-hover:text-white transition-colors">
+                        <span>ورود</span>
+                        <ChevronLeft className="w-3 h-3 transition-transform group-hover:-translate-x-1" />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
               </motion.div>
             );
           })}
         </motion.div>
+
+        {/* Banner Ad / Sponsors Section */}
+        <div className="w-full max-w-xl mt-8 z-10">
+          <AdsSection variant="banner" onShowToast={showToast} isDark={isDark} />
+        </div>
 
         {/* Footer info text */}
         <motion.div 
@@ -1049,7 +1204,6 @@ const App: React.FC = () => {
         
         <nav className="flex flex-col gap-1 overflow-y-auto custom-scrollbar pr-1">
           {tabs.map((tab) => {
-            const isLocked = isTabLocked(activeSection, tab.id);
             return (
               <button
                 key={tab.id}
@@ -1062,21 +1216,29 @@ const App: React.FC = () => {
                 `}
               >
                 <div className="flex items-center gap-3.5">
-                  <tab.icon className="w-5 h-5" />
+                  <tab.icon className={`w-5 h-5 transition-transform duration-500 ${
+                    activeTab === tab.id 
+                      ? (
+                        activeSection === 'gas' ? 'animate-pulse-slow text-yellow-300 scale-110' :
+                        activeSection === 'fire' ? 'animate-float text-rose-200 scale-110' :
+                        activeSection === 'plumbing' ? 'animate-float text-cyan-200 scale-110' :
+                        'animate-spin-slow text-amber-250 scale-110'
+                      )
+                      : 'text-slate-500 group-hover:scale-110 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200'
+                  }`} />
                   <span className="font-bold text-sm">{tab.label}</span>
                 </div>
-                {isLocked && (
-                  <div className="flex items-center gap-1 text-[10px] bg-amber-500/15 text-amber-500 dark:text-amber-400 px-2.5 py-0.5 rounded-full font-black">
-                    <Lock className="w-2.5 h-2.5" />
-                    <span>ویژه</span>
-                  </div>
-                )}
               </button>
             );
           })}
         </nav>
 
-        <div className="mt-auto pt-4 border-t border-slate-100">
+        {/* Sidebar Dynamic Sponsor Ad */}
+        <div className="mt-4 pt-4 border-t border-slate-105 dark:border-slate-800">
+          <AdsSection variant="banner" onShowToast={showToast} isDark={isDark} />
+        </div>
+
+        <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-800">
           <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100 font-sans">
             <p className="text-[10px] text-blue-700 font-black leading-relaxed">ویرایش پنجم ۱۴۰۳</p>
             <p className="text-[9px] text-blue-400 mt-0.5 uppercase font-bold tracking-tighter ltr">National Building Regulations</p>
@@ -1100,35 +1262,60 @@ const App: React.FC = () => {
         </div>
 
         <button 
-          onClick={toggleSection}
-          className="bg-white/15 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0"
+          onClick={() => setShowSectionSelector(true)}
+          className="bg-white/15 px-3.5 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shrink-0 active:scale-95 transition-all cursor-pointer"
         >
           <ArrowLeftRight className="w-3.5 h-3.5" />
-          <span>{activeSection === 'gas' ? 'آتش‌نشانی' : activeSection === 'fire' ? 'تاسیسات بهداشتی' : activeSection === 'plumbing' ? 'تاسیسات مکانیکی' : 'گازرسانی'}</span>
+          <span>تغییر بخش</span>
         </button>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-[#070b13]">
-        <div className={`h-full custom-scrollbar p-4 md:p-10 ${activeTab === 'contact' ? 'pb-10' : 'pb-28'} md:pb-10 overflow-y-auto`}>
-          {isTabLocked(activeSection, activeTab) ? (
-            <BazaarUpgradeScreen 
-              section={activeSection} 
-              tabId={activeTab} 
-              onUnlock={(success) => {
-                if (success) {
-                  setIsPremium(true);
-                  showToast('اشتراک طلایی گازینو با موفقیت فعال شد! 🎉🌟');
-                }
-              }} 
-            />
-          ) : ActiveComponent === PlumbingSystem ? (
+      <main className="flex-1 overflow-hidden relative bg-slate-50 dark:bg-[#070b13] transition-colors duration-500">
+        {/* Revolutionary Context-Aware High Quality Background Image with glassmorphism blending */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 select-none">
+          <motion.div 
+            key={activeSection}
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: isDark ? 0.08 : 0.06, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ 
+              backgroundImage: `url(${sectionBackgrounds[activeSection]})`,
+              filter: 'grayscale(15%) contrast(110%) blur(0.5px)'
+            }}
+          />
+          {/* Subtle elegant engineering blueprint grid overlay */}
+          <div className="absolute inset-0 bg-[size:36px_36px] bg-[linear-gradient(to_right,#e2e8f0_0.8px,transparent_0.8px),linear-gradient(to_bottom,#e2e8f0_0.8px,transparent_0.8px)] dark:bg-[linear-gradient(to_right,#1e293b_0.5px,transparent_0.5px),linear-gradient(to_bottom,#1e293b_0.5px,transparent_0.5px)] opacity-[0.24] dark:opacity-[0.14]" />
+          
+          {/* Glowing ambient flow spotlight in the top right corner */}
+          <div className={`absolute top-0 right-1/4 w-[450px] h-[450px] rounded-full blur-[130px] opacity-[0.16] dark:opacity-[0.12] -translate-y-1/3 transition-all duration-700 ${
+            activeSection === 'gas' ? 'bg-blue-500' :
+            activeSection === 'fire' ? 'bg-rose-500' :
+            activeSection === 'plumbing' ? 'bg-cyan-500' : 'bg-amber-500'
+          }`} />
+        </div>
+
+        <div className={`h-full custom-scrollbar p-4 md:p-10 ${activeTab === 'contact' ? 'pb-10' : 'pb-28'} md:pb-10 overflow-y-auto relative z-10`}>
+          {ActiveComponent === PlumbingSystem ? (
             <PlumbingSystem activeTabId={activeTab} />
           ) : ActiveComponent === MechanicalHvac ? (
             <MechanicalHvac activeTabId={activeTab} />
           ) : (
             <ActiveComponent />
           )}
+
+          {/* Bottom Banner Ads identical to landing page */}
+          <div className="mt-10 md:mt-16 border-t border-slate-200 dark:border-slate-800/80 pt-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="w-4 h-4 text-amber-500 animate-pulse" />
+              <h4 className="text-xs font-black text-slate-800 dark:text-slate-200">
+                حامیان توسعه و شرکای تجاری تائید شده گازینو:
+              </h4>
+            </div>
+            <AdsSection variant="banner" onShowToast={showToast} isDark={isDark} />
+          </div>
         </div>
 
         {/* Mobile Bottom Navigation */}
@@ -1147,7 +1334,6 @@ const App: React.FC = () => {
             >
               {/* Double the tabs for infinite loop effect */}
               {[...tabs, ...tabs].map((tab, idx) => {
-                const isLocked = isTabLocked(activeSection, tab.id);
                 return (
                   <button
                     key={`${tab.id}-${idx}`}
@@ -1167,11 +1353,6 @@ const App: React.FC = () => {
                     )}
                     <div className="relative">
                       <tab.icon className="w-6 h-6 mb-1" />
-                      {isLocked && (
-                        <div className="absolute -top-1 -right-1 bg-amber-500 border border-white dark:border-slate-900 text-white rounded-full p-0.5 shadow-sm" style={{ transform: 'scale(0.85)' }}>
-                          <Lock className="w-2.5 h-2.5" />
-                        </div>
-                      )}
                     </div>
                     <span className="text-[9px] font-bold">
                       {tab.id === 'valve' ? 'شیر' : 
@@ -1193,333 +1374,149 @@ const App: React.FC = () => {
           </nav>
         )}
       </main>
-    </div>
-  );
-};
 
-interface BazaarUpgradeProps {
-  section: SectionId;
-  tabId: TabId;
-  onUnlock: (success: boolean) => void;
-}
-
-const BazaarUpgradeScreen: React.FC<BazaarUpgradeProps> = ({ section, tabId, onUnlock }) => {
-  const [activationCode, setActivationCode] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
-  const [showDirectBilling, setShowDirectBilling] = useState(false);
-  const [step, setStep] = useState<'checkout' | 'processing' | 'success'>('checkout');
-
-  // زاپاس‌های مخفی برای تسترها و توسعه‌دهنده
-  const [lockClickCount, setLockClickCount] = useState(0);
-  const [showDevBypass, setShowDevBypass] = useState(false);
-
-  const handleLockClick = () => {
-    const newCount = lockClickCount + 1;
-    setLockClickCount(newCount);
-    if (newCount >= 5) {
-      setShowDevBypass(true);
-    }
-  };
-
-  const handleBypassCode = () => {
-    // Hidden backdoors/activation codes for reviewers & testing
-    const code = activationCode.trim().toUpperCase();
-    if (code === 'GASINO_FREE_2026' || code === 'BAZAAR_PRO_99' || code === 'GASINO_TEST') {
-      onUnlock(true);
-      setErrorMessage('');
-    } else {
-      setErrorMessage('کد فعال‌سازی نامعتبر است. لطفاً مجدداً تلاش کنید.');
-    }
-  };
-
-  const handleBazaarPurchase = () => {
-    // Native Cafe Bazaar interaction
-    const bridge = (window as any).BazaarBridge;
-    if (bridge && typeof bridge.initiateBazaarPurchase === 'function') {
-      try {
-        bridge.initiateBazaarPurchase('gasino_premium_1year');
-        return;
-      } catch (err) {
-        console.error("Native purchase failure, falling back to web sandbox:", err);
-      }
-    }
-
-    // Web sandbox/simulator for developers and web clients
-    setShowDirectBilling(true);
-    setStep('checkout');
-  };
-
-  const handleSimulatedPayment = () => {
-    setStep('processing');
-    setTimeout(() => {
-      setStep('success');
-      setTimeout(() => {
-        setShowDirectBilling(false);
-        // Grant 1 year access
-        const oneYear = 365 * 24 * 60 * 60 * 1000;
-        localStorage.setItem('isPremium', 'true');
-        localStorage.setItem('premium_expiry', (Date.now() + oneYear).toString());
-        onUnlock(true);
-      }, 2000);
-    }, 2000);
-  };
-
-  return (
-    <div className="flex flex-col items-center justify-center p-4 md:p-10 font-sans max-w-2xl mx-auto text-right" dir="rtl">
-      {/* Premium Banner Glowing */}
-      <motion.div 
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="w-full bg-gradient-to-br from-amber-500/10 via-amber-600/5 to-transparent border border-amber-500/20 rounded-[32px] p-6 md:p-8 relative overflow-hidden shadow-sm"
-      >
-        {/* Sparkle effects */}
-        <div className="absolute top-4 left-4 text-amber-500 opacity-60">
-          <Sparkles className="w-6 h-6 animate-pulse" />
-        </div>
-        <div className="absolute bottom-4 right-8 text-amber-500/30">
-          <Sparkles className="w-12 h-12" />
-        </div>
-
-        {/* Golden animated Lock */}
-        <div className="flex justify-center mb-6">
-          <motion.div 
-            onClick={handleLockClick}
-            animate={{ 
-              y: [0, -8, 0],
-              rotate: [0, 3, -3, 0]
-            }}
-            transition={{
-              duration: 4,
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="w-20 h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-[24px] flex items-center justify-center shadow-lg shadow-amber-500/20 border border-amber-300 cursor-pointer select-none"
-          >
-            <Lock className="w-10 h-10 text-white" />
-          </motion.div>
-        </div>
-
-        <h2 className="text-2xl font-black text-center text-slate-800 dark:text-amber-400 mb-3">
-          دسترسی به نسخه طلایی یک‌ساله گازینو
-        </h2>
-        <p className="text-sm font-bold text-slate-500 dark:text-slate-400 text-center leading-relaxed mb-6 max-w-lg mx-auto">
-          این ابزار جزء امکانات ویژه (طلایی) پورتال محاسباتی تاسیسات ساختمان است. جهت بازگشایی آنی تمامی بخش‌های قفل شده برنامه به مدت یک‌سال کامل، می‌توانید اشتراک طلایی را فعال فرمایید.
-        </p>
-
-        {/* Pricing Plan Info */}
-        <div className="bg-white/80 dark:bg-slate-900 border border-slate-150 dark:border-slate-800 rounded-2xl p-4 flex items-center justify-between mb-8 select-none shadow-sm">
-          <div>
-            <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-black ml-2 animate-pulse">تخفیف ویژه</span>
-            <span className="text-slate-400 dark:text-slate-500 text-xs line-through ml-2 font-bold">۹۸۰,۰۰۰ تومان</span>
-            <div className="text-lg font-black text-slate-800 dark:text-slate-100 mt-1">
-              ۶۰۰,۰۰۰{" "}
-              <span className="text-xs font-bold text-slate-500">تومان / اشتراک سالانه</span>
-            </div>
-          </div>
-          <div className="text-left font-sans">
-            <div className="text-xs font-black text-amber-600 dark:text-amber-400">مقررات ملی ساختمان</div>
-            <div className="text-[9px] text-slate-400 font-bold mt-0.5">مباحث ١۴، ١۶ و ١٧</div>
-          </div>
-        </div>
-
-        {/* Feature List */}
-        <div className="space-y-4 mb-8 text-right bg-slate-50/50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-100/50 dark:border-slate-800">
-          <h4 className="text-xs font-black text-slate-400 uppercase tracking-wider mb-2">امکانات فوق‌العاده با خرید اشتراک:</h4>
-          
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">سایزینگ پیشرفته لوله‌کشی گاز طبیعی</h5>
-              <p className="text-[11px] text-slate-400 font-bold leading-relaxed mt-0.5">محاسبه اقطار لوله‌های فولادی و فواصل دودکشی بر اساس مبحث ۱۷ مقررات ملی ساختمان.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">محاسبات تخصصی هیدرولیک و ضدحریق</h5>
-              <p className="text-[11px] text-slate-400 font-bold leading-relaxed mt-0.5">سایزبندی کلکتور اطفاء، محاسبات هد پمپ زون‌های حریق و اقطار جعبه‌های آتش‌نشانی.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">تاسیسات بهداشتی، آب باران و ناودان</h5>
-              <p className="text-[11px] text-slate-400 font-bold leading-relaxed mt-0.5">محاسبات تخلیه شیب ثقلی لوله‌ها بر اساس میزان DFU و شیب فاضلاب مصوب مبحث ۱۶.</p>
-            </div>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <h5 className="text-xs font-black text-slate-700 dark:text-slate-200">کانال‌کشی و بار تهویه مطبوع ساختمان</h5>
-              <p className="text-[11px] text-slate-400 font-bold leading-relaxed mt-0.5">محاسبات سرعت‌سنجی فیشر، افت فشار اصطکاکی هیدرولیکی برودتی حرارتی مبحث ۱۴.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Buttons */}
-        <div className="flex flex-col gap-3">
-          <button 
-            onClick={handleBazaarPurchase}
-            className="w-full py-4 px-6 bg-gradient-to-r from-emerald-600 via-emerald-500 to-emerald-600 hover:opacity-95 text-white font-black text-sm rounded-2xl shadow-lg shadow-emerald-500/10 active:scale-98 transition-all cursor-pointer flex items-center justify-center gap-2.5"
-          >
-            <CreditCard className="w-4 h-4" />
-            <span>خرید اشتراک طلایی (اتصال به کافه بازار)</span>
-          </button>
-
-          {/* Developer Bypass Mode hidden behind Lock taps */}
-          {showDevBypass && (
+      {/* Dynamic Section Selector Bottom Sheet / Centered Modal */}
+      <AnimatePresence>
+        {showSectionSelector && (
+          <>
+            {/* Backdrop Blur */}
             <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              className="mt-2 space-y-3"
-            >
-              <div className="p-3 bg-blue-500/5 border border-blue-500/20 rounded-xl text-center">
-                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-black flex items-center justify-center gap-2">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>حالت توسعه‌دهنده فعال شد. کد تستی اشتراک طلایی جهت ارزیابی داوران بازار:</span>
-                </p>
-                <div className="mt-2 flex items-center justify-center gap-1.5">
-                  <span className="font-mono bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-300 px-2 py-0.5 rounded-lg text-xs font-bold select-all">GASINO_FREE_2026</span>
-                  <button 
-                    onClick={() => {
-                      setActivationCode('GASINO_FREE_2026');
-                      onUnlock(true);
-                    }}
-                    className="text-[10px] font-black text-blue-600 hover:underline cursor-pointer"
-                  >
-                    (اعمال خودکار)
-                  </button>
-                </div>
-              </div>
-              
-              <div className="relative flex py-1 items-center">
-                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-                <span className="flex-shrink mx-4 text-slate-400 text-[10px] font-bold">یا</span>
-                <div className="flex-grow border-t border-slate-200 dark:border-slate-800"></div>
-              </div>
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowSectionSelector(false)}
+              className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm cursor-default"
+            />
 
-              {/* Enter bypass activation code manually */}
-              <div className="flex gap-2 w-full">
-                <input 
-                  type="text"
-                  placeholder="کد فعال‌سازی تستی"
-                  value={activationCode}
-                  onChange={(e) => setActivationCode(e.target.value)}
-                  className="flex-1 px-4 py-3 bg-white dark:bg-slate-900 text-xs font-bold rounded-xl border border-slate-250 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500 text-center uppercase font-mono"
-                />
-                <button 
-                  onClick={handleBypassCode}
-                  className="px-5 py-3 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white font-black text-xs rounded-xl active:scale-95 transition-all cursor-pointer shrink-0"
+            {/* Bottom Sheet Modal Container */}
+            <motion.div
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed bottom-0 left-0 right-0 z-55 max-w-lg mx-auto bg-white dark:bg-slate-900 rounded-t-[2.5rem] border-t border-slate-200/60 dark:border-slate-800 p-6 shadow-2xl font-sans text-right"
+              dir="rtl"
+            >
+              {/* Drag Handle Indicator */}
+              <div 
+                className="w-12 h-1.5 bg-slate-200 dark:bg-slate-700/65 rounded-full mx-auto mb-5 cursor-pointer" 
+                onClick={() => setShowSectionSelector(false)} 
+              />
+
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <ArrowLeftRight className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">انتخاب بخش محاسباتی</h3>
+                </div>
+                <button
+                  onClick={() => setShowSectionSelector(false)}
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 rounded-xl transition-colors cursor-pointer text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
                 >
-                  تایید
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-              {errorMessage && (
-                <p className="text-[10px] font-black text-rose-500 text-center mt-1">{errorMessage}</p>
-              )}
-            </motion.div>
-          )}
-        </div>
-      </motion.div>
 
-      {/* Simulated Cafe Bazaar App Checkout Modal Overlay */}
-      <AnimatePresence>
-        {showDirectBilling && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/55 p-4 font-sans select-none" dir="rtl">
-            {/* Background Overlay */}
-            <div className="absolute inset-0" onClick={() => setShowDirectBilling(false)} />
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mb-5 leading-relaxed font-black">
+                حوزه محاسبات مهندسی و فنی مورد نظر خود را جهت جابجایی انتخاب کنید:
+              </p>
 
-            <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 15 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 15 }}
-              className="bg-white dark:bg-[#121c2e] border border-slate-100 dark:border-slate-800 w-full max-w-sm rounded-[32px] overflow-hidden shadow-2xl relative z-10 text-right"
-              style={{ direction: 'rtl' }}
-            >
-              {/* Cafe Bazaar Top Header Bar */}
-              <div className="bg-[#1e7e34] text-white p-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-black text-xs font-mono select-none">
-                    ک‌ب
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black">درگاه پرداخت بازار</h4>
-                    <p className="text-[9px] opacity-70">ir.cafebazaar.pardakht</p>
-                  </div>
-                </div>
-                <div className="text-left font-mono text-[8px] tracking-wider font-bold bg-white/10 px-2 py-0.5 rounded-full uppercase">
-                  SECURED
-                </div>
+              <div className="flex flex-col gap-3.5 mb-6">
+                {[
+                  {
+                    id: 'gas' as SectionId,
+                    label: 'سیستم گازرسانی و محاسبات',
+                    subLabel: 'محاسبه لوله‌کشی، تهویه دهانه‌ها، کنتور، فواصل ایمنی و تست استقامت',
+                    icon: Flame,
+                    borderColor: 'border-blue-100 hover:border-blue-300 dark:border-blue-900/40 dark:hover:border-blue-800',
+                    bgGradient: 'hover:bg-blue-50/40 dark:hover:bg-blue-950/20',
+                    badge: 'مبحث ۱۷',
+                    color: 'text-blue-600',
+                    badgeBg: 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 border border-blue-200/40'
+                  },
+                  {
+                    id: 'fire' as SectionId,
+                    label: 'آتش‌نشانی و مهندسی ضد حریق',
+                    subLabel: 'مخازن اطفا حریق، محاسبات لوله حریق، هد و دبی پمپ، کپسول اطفاء',
+                    icon: FireExtinguisher,
+                    borderColor: 'border-rose-100 hover:border-rose-300 dark:border-rose-900/40 dark:hover:border-rose-800',
+                    bgGradient: 'hover:bg-rose-50/40 dark:hover:bg-rose-950/20',
+                    badge: 'مبحث ۳',
+                    color: 'text-rose-600',
+                    badgeBg: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400 border border-rose-200/40'
+                  },
+                  {
+                    id: 'plumbing' as SectionId,
+                    label: 'تاسیسات بهداشتی و فاضلاب',
+                    subLabel: 'طراحی لوله‌کشی آبرسانی ساختمان، فاضلاب، منبع مصرفی و آب باران',
+                    icon: Wrench,
+                    borderColor: 'border-cyan-100 hover:border-cyan-300 dark:border-cyan-900/40 dark:hover:border-cyan-800',
+                    bgGradient: 'hover:bg-cyan-50/40 dark:hover:bg-cyan-950/20',
+                    badge: 'مبحث ۱۶',
+                    color: 'text-cyan-600',
+                    badgeBg: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border border-cyan-200/40'
+                  },
+                  {
+                    id: 'hvac' as SectionId,
+                    label: 'تاسیسات مکانیکی و تهویه',
+                    subLabel: 'بارهای برودتی حرارتی، سایز کانال تهویه، لوله‌های تاسیساتی و تست',
+                    icon: Wind,
+                    borderColor: 'border-amber-100 hover:border-amber-300 dark:border-amber-900/40 dark:hover:border-amber-800',
+                    bgGradient: 'hover:bg-amber-50/40 dark:hover:bg-amber-950/20',
+                    badge: 'مبحث ۱۴',
+                    color: 'text-amber-600',
+                    badgeBg: 'bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border border-amber-200/40'
+                  }
+                ].map((sec) => {
+                  const IconComp = sec.icon;
+                  const isCurrent = activeSection === sec.id;
+                  
+                  return (
+                    <button
+                      key={sec.id}
+                      onClick={() => {
+                        handleSectionSelect(sec.id);
+                        setShowSectionSelector(false);
+                      }}
+                      className={`w-full group p-4 border rounded-2xl flex items-start gap-3.5 transition-all duration-300 text-right cursor-pointer select-none active:scale-[0.98] ${sec.borderColor} ${sec.bgGradient} ${
+                        isCurrent 
+                          ? 'border-blue-650 dark:border-blue-500 bg-blue-50/30 dark:bg-blue-900/10 shadow-sm shadow-blue-500/10' 
+                          : 'bg-slate-50/50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800/60'
+                      }`}
+                    >
+                      <div className={`p-3 rounded-2xl transition-all duration-300 group-hover:scale-105 shrink-0 ${
+                        isCurrent 
+                          ? 'bg-blue-600 text-white shadow-md' 
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                      }`}>
+                        <IconComp className="w-5 h-5" />
+                      </div>
+                      
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 justify-between">
+                          <h4 className="font-extrabold text-xs text-slate-800 dark:text-slate-200">
+                            {sec.label}
+                          </h4>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-lg ${sec.badgeBg}`}>
+                            {sec.badge}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 dark:text-slate-500 leading-relaxed font-black truncate">
+                          {sec.subLabel}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* Checkout Info */}
-              <div className="p-6">
-                {step === 'checkout' && (
-                  <>
-                    <h3 className="text-slate-800 dark:text-slate-100 font-black text-sm text-center mb-1">تایید پرداخت اشتراک طلایی</h3>
-                    <p className="text-[10px] text-slate-400 font-bold text-center mb-6">پورتال محاسباتی گازینو (نسخه ۱ ساله واریزی)</p>
-                    
-                    <div className="space-y-3 mb-6 bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-800">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold">نام محصول:</span>
-                        <span className="text-slate-700 dark:text-slate-205 font-black text-right">دسترسی VIP کامل سالانه گازینو</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold">نام توسعه‌دهنده:</span>
-                        <span className="text-slate-700 dark:text-slate-205 font-black text-right">تیم فنی مهندسی گازینو</span>
-                      </div>
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-slate-400 font-bold">کاربر خریدار:</span>
-                        <span className="text-slate-700 dark:text-slate-205 font-mono font-bold">RabiNateghi@gmail.com</span>
-                      </div>
-                      <div className="h-[1px] bg-slate-100 dark:bg-slate-800 my-2" />
-                      <div className="flex justify-between items-center text-sm font-black">
-                        <span className="text-slate-800 dark:text-slate-300">مجموع دریافتی:</span>
-                        <span className="text-emerald-600 dark:text-emerald-400 text-base font-black">۶۰۰,۰۰۰ تومان</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col gap-2">
-                      <button 
-                        onClick={handleSimulatedPayment}
-                        className="w-full py-3 bg-[#1e7e34] hover:bg-[#1a6b2c] text-white font-black text-xs rounded-xl shadow-md cursor-pointer text-center"
-                      >
-                        پرداخت با کارت شتاب (شبیه‌ساز موفق)
-                      </button>
-                      <button 
-                        onClick={() => setShowDirectBilling(false)}
-                        className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 font-black text-xs rounded-xl cursor-pointer text-center"
-                      >
-                        انصراف و بازگشت
-                      </button>
-                    </div>
-                  </>
-                )}
-
-                {step === 'processing' && (
-                  <div className="py-8 flex flex-col items-center justify-center text-center">
-                    <div className="w-10 h-10 border-4 border-[#1e7e34] border-t-transparent rounded-full animate-spin mb-4"></div>
-                    <p className="text-xs font-black text-slate-600 dark:text-slate-300">در حال تایید نهایی پرداخت از کافه بازار...</p>
-                    <p className="text-[9px] text-slate-400 font-bold mt-1">تراکنش در حال صدور می‌باشد</p>
-                  </div>
-                )}
-
-                {step === 'success' && (
-                  <div className="py-6 flex flex-col items-center justify-center text-center">
-                    <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/20 rounded-full flex items-center justify-center text-emerald-500 mb-4 border border-emerald-100 dark:border-emerald-800">
-                      <CheckCircle2 className="w-8 h-8 fill-emerald-50 dark:fill-transparent" />
-                    </div>
-                    <h3 className="text-emerald-600 dark:text-emerald-400 font-black text-sm mb-1">پرداخت با موفقیت تایید شد!</h3>
-                    <p className="text-[10px] text-slate-400 font-bold">شماره تراکنش: BZ-849310</p>
-                    <p className="text-xs font-black text-slate-600 dark:text-slate-300 mt-4 leading-relaxed">با سپاس، دسترسی طلایی ۱ ساله شما فعال شد. در حال بارگزاری مجدد محاسبات...</p>
-                  </div>
-                )}
-              </div>
+              <button
+                onClick={() => setShowSectionSelector(false)}
+                className="w-full py-3 rounded-2xl text-slate-500 bg-slate-50 hover:bg-slate-100 dark:bg-slate-800/50 dark:hover:bg-slate-800 hover:text-slate-800 dark:text-slate-300 transition-colors font-extrabold text-xs text-center cursor-pointer active:scale-95 border border-slate-100 dark:border-slate-800/40"
+              >
+                انصراف و بستن
+              </button>
             </motion.div>
-          </div>
+          </>
         )}
       </AnimatePresence>
     </div>

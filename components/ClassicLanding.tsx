@@ -85,6 +85,28 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
   const [showMenuOverlay, setShowMenuOverlay] = useState(false);
   const [activeModal, setActiveModal] = useState<'unit' | 'electricity' | 'standards' | 'formulas' | null>(null);
   
+  // Dynamic click count to unlock/lock secret admin options
+  const [brandClicks, setBrandClicks] = useState(0);
+
+  const handleBrandClick = () => {
+    const nextClicks = brandClicks + 1;
+    if (nextClicks >= 6) {
+      setBrandClicks(0);
+      try {
+        const isCurrentlyUnlocked = localStorage.getItem('gasino_admin_unlocked') === 'true';
+        if (isCurrentlyUnlocked) {
+          localStorage.removeItem('gasino_admin_unlocked');
+          window.dispatchEvent(new CustomEvent('gasino_admin_locked'));
+        } else {
+          localStorage.setItem('gasino_admin_unlocked', 'true');
+          window.dispatchEvent(new CustomEvent('gasino_admin_unlocked'));
+        }
+      } catch (e) {}
+    } else {
+      setBrandClicks(nextClicks);
+    }
+  };
+
   // Unit converter states
   const [convertType, setConvertType] = useState<'pressure' | 'flow' | 'power' | 'length' | 'temp'>('pressure');
   const [inputUnit, setInputUnit] = useState<string>('Bar');
@@ -98,18 +120,17 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
     if (!container) return;
 
     let animationFrameId: number;
-    const speed = 0.5; // very smooth and slow
+    const autoScrollSpeed = 0.5; // very smooth and slow
+    let isInteracting = false;
+    let resumeTimeoutId: any = null;
 
     const scroll = () => {
-      if (!container) return;
+      if (!container || isInteracting) return;
       
       const maxScroll = container.scrollWidth - container.clientWidth;
-      if (maxScroll <= 0) {
-        animationFrameId = requestAnimationFrame(scroll);
-        return;
-      }
+      if (maxScroll <= 0) return;
 
-      let current = container.scrollLeft;
+      const current = container.scrollLeft;
       
       if (current === 0) {
         container.scrollLeft = -1;
@@ -118,49 +139,97 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
         if (Math.abs(current) >= maxScroll - 1) {
           container.scrollLeft = 0;
         } else {
-          container.scrollLeft -= speed;
+          container.scrollLeft -= autoScrollSpeed;
         }
       } else {
         // RTL positive fallback
         if (current >= maxScroll - 1) {
           container.scrollLeft = 0;
         } else {
-          container.scrollLeft += speed;
+          container.scrollLeft += autoScrollSpeed;
         }
       }
-
-      animationFrameId = requestAnimationFrame(scroll);
     };
 
-    let isPaused = false;
     const loop = () => {
-      if (!isPaused) {
-        scroll();
-      } else {
-        animationFrameId = requestAnimationFrame(loop);
-      }
+      scroll();
+      animationFrameId = requestAnimationFrame(loop);
     };
 
     animationFrameId = requestAnimationFrame(loop);
 
-    const onMouseEnter = () => { isPaused = true; };
-    const onMouseLeave = () => { isPaused = false; };
-    const onTouchStart = () => { isPaused = true; };
-    const onTouchEnd = () => { isPaused = false; };
+    // Mouse drag-to-scroll implementation
+    let isMouseDown = false;
+    let startX = 0;
+    let startScrollLeft = 0;
 
-    container.addEventListener('mouseenter', onMouseEnter);
-    container.addEventListener('mouseleave', onMouseLeave);
+    const onMouseDown = (e: MouseEvent) => {
+      isMouseDown = true;
+      isInteracting = true;
+      if (resumeTimeoutId) {
+        clearTimeout(resumeTimeoutId);
+        resumeTimeoutId = null;
+      }
+      startX = e.pageX - container.offsetLeft;
+      startScrollLeft = container.scrollLeft;
+      container.style.scrollBehavior = 'auto'; // precise drag positioning
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!isMouseDown) return;
+      e.preventDefault();
+      const x = e.pageX - container.offsetLeft;
+      const walk = (x - startX) * 1.5; // drag speed modifier
+      container.scrollLeft = startScrollLeft - walk;
+    };
+
+    const onMouseUpOrLeave = () => {
+      if (isMouseDown) {
+        isMouseDown = false;
+        container.style.scrollBehavior = 'smooth';
+        resumeTimeoutId = setTimeout(() => {
+          isInteracting = false;
+        }, 4000);
+      }
+    };
+
+    // Touch events for mobile screens
+    const onTouchStart = () => {
+      isInteracting = true;
+      if (resumeTimeoutId) {
+        clearTimeout(resumeTimeoutId);
+        resumeTimeoutId = null;
+      }
+      container.style.scrollBehavior = 'auto';
+    };
+
+    const onTouchEnd = () => {
+      container.style.scrollBehavior = 'smooth';
+      resumeTimeoutId = setTimeout(() => {
+        isInteracting = false;
+      }, 4000);
+    };
+
+    // Attach Event Listeners
+    container.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUpOrLeave);
+    container.addEventListener('mouseleave', onMouseUpOrLeave);
+
     container.addEventListener('touchstart', onTouchStart, { passive: true });
     container.addEventListener('touchend', onTouchEnd, { passive: true });
 
     return () => {
       cancelAnimationFrame(animationFrameId);
-      if (container) {
-        container.removeEventListener('mouseenter', onMouseEnter);
-        container.removeEventListener('mouseleave', onMouseLeave);
-        container.removeEventListener('touchstart', onTouchStart);
-        container.removeEventListener('touchend', onTouchEnd);
-      }
+      if (resumeTimeoutId) clearTimeout(resumeTimeoutId);
+      
+      container.removeEventListener('mousedown', onMouseDown);
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUpOrLeave);
+      container.removeEventListener('mouseleave', onMouseUpOrLeave);
+
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchend', onTouchEnd);
     };
   }, []);
 
@@ -259,7 +328,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
       </div>
 
       {/* Top Banner Header Row with icons */}
-      <div className="relative z-10 flex items-center justify-between pt-6 pb-2 no-print">
+      <div className="relative z-10 flex items-center justify-between pt-2 pb-0.5 no-print">
         {/* Hamburger Menu on right */}
         <button 
           onClick={() => setShowMenuOverlay(true)}
@@ -273,8 +342,11 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           <motion.h1 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleBrandClick}
             dir="ltr"
-            className="text-3xl font-black tracking-tight flex items-center justify-center gap-[2.5px] cursor-default font-sans"
+            className="text-3xl font-black tracking-tight flex items-center justify-center gap-[2.5px] cursor-pointer select-none font-sans"
+            title="ضربه بزنید"
           >
             {["G", "a", "s", "i", "n", "o"].map((letter, idx) => {
               const gradients = [
@@ -301,119 +373,239 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
         <div className="w-10 h-10" />
       </div>
 
-      {/* Grid of 8 Core Boxes matching sketch layout */}
-      <div className="relative z-10 grid grid-cols-2 gap-4 mt-6">
+      {/* Grid of 8 Core Boxes with stunning visual covers and hover effects */}
+      <div className="relative z-10 grid grid-cols-2 gap-3 mt-8">
         
         {/* Card 1: تأسیسات مکانیکی */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => onSelectSection('hvac', 'hvac_load')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center mb-3">
-            <Cog className="w-6 h-6 animate-spin-slow" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/10 backdrop-blur-md border border-emerald-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-emerald-500/20 group-hover:border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.15)] group-hover:shadow-[0_0_15px_rgba(16,185,129,0.25)]">
+              <Cog className="w-5 h-5 animate-spin-slow text-emerald-400 dark:text-emerald-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">تأسیسات مکانیکی</span>
+            <span className="text-[8.5px] text-slate-350 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">بار تهویه، کانال‌کشی و چیلر</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">تأسیسات مکانیکی</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">بار تهویه، کانال‌کشی و چیلر</span>
         </motion.div>
 
         {/* Card 2: تاسیسات بهداشتی */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => onSelectSection('plumbing', 'plumbing')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400 flex items-center justify-center mb-3">
-            <Droplet className="w-6 h-6" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-sky-500/20 to-cyan-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-sky-500/10 backdrop-blur-md border border-sky-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-sky-500/20 group-hover:border-sky-400/50 shadow-[0_0_10px_rgba(56,189,248,0.15)] group-hover:shadow-[0_0_15px_rgba(56,189,248,0.25)]">
+              <Droplet className="w-5 h-5 animate-float text-sky-400 dark:text-sky-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">تاسیسات بهداشتی</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">آبرسانی بر اساس SFU و شیب</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">تاسیسات بهداشتی</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">آبرسانی بر اساس SFU و شیب</span>
         </motion.div>
 
         {/* Card 3: آتش‌نشانی و اطفاء حریق */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => onSelectSection('fire', 'water')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 dark:bg-rose-500/10 text-rose-500 dark:text-rose-400 flex items-center justify-center mb-3">
-            <FireExtinguisher className="w-6 h-6" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1516383274235-5f42d6c6426d?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-rose-500/20 to-red-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-rose-500/10 backdrop-blur-md border border-rose-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-rose-500/20 group-hover:border-rose-400/50 shadow-[0_0_10px_rgba(244,63,94,0.15)] group-hover:shadow-[0_0_15px_rgba(244,63,94,0.25)]">
+              <FireExtinguisher className="w-5 h-5 animate-pulse-slow text-rose-400 dark:text-rose-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">آتش‌نشانی و اطفاء</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">هد پمپ، کلکتور و اسپرینکلر</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">آتش‌نشانی و اطفاء</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">هد پمپ، کلکتور و اسپرینکلر</span>
         </motion.div>
 
         {/* Card 4: سیستم گازرسانی */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => onSelectSection('gas', 'pipe')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-3">
-            <Flame className="w-6 h-6" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-blue-500/20 to-indigo-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-blue-500/10 backdrop-blur-md border border-blue-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-blue-500/20 group-hover:border-blue-400/50 shadow-[0_0_10px_rgba(59,130,246,0.15)] group-hover:shadow-[0_0_15px_rgba(59,130,246,0.25)]">
+              <Flame className="w-5 h-5 animate-pulse-slow text-blue-400 dark:text-blue-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">سیستم گازرسانی</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">مبحث ۱۷ لوله‌کشی و دودکش‌</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">سیستم گازرسانی</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">مبحث ۱۷ لوله‌کشی و دودکش‌</span>
         </motion.div>
 
         {/* Card 5: کتابچه راهنما و مقررات */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={onShowGuide}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 flex items-center justify-center mb-3">
-            <BookOpen className="w-6 h-6" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-amber-500/20 to-orange-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-amber-500/10 backdrop-blur-md border border-amber-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-amber-500/20 group-hover:border-amber-400/50 shadow-[0_0_10px_rgba(245,158,11,0.15)] group-hover:shadow-[0_0_15px_rgba(245,158,11,0.25)]">
+              <BookOpen className="w-5 h-5 animate-float text-amber-400 dark:text-amber-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">راهنما و مقررات</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">راهنمای ۱۶، ۱۴، ۱۷ و فرمول‌ها</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">راهنما و مقررات</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">راهنمای ۱۶، ۱۴، ۱۷ و فرمول‌ها</span>
         </motion.div>
 
         {/* Card 6: ابزارها و تبدیل واحد */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => setActiveModal('unit')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-orange-50 dark:bg-orange-500/10 text-orange-500 dark:text-orange-400 flex items-center justify-center mb-3">
-            <Calculator className="w-6 h-6" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-orange-500/20 to-red-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-orange-500/10 backdrop-blur-md border border-orange-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-orange-500/20 group-hover:border-orange-400/50 shadow-[0_0_10px_rgba(249,115,22,0.15)] group-hover:shadow-[0_0_15px_rgba(249,115,22,0.25)]">
+              <Calculator className="w-5 h-5 animate-pulse-slow text-orange-400 dark:text-orange-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">تبدیل واحد مهندسی</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">فشار، دما، دبی و توان حرارتی</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">تبدیل واحد مهندسی</span>
-          <span className="text-[9px] text-zinc-400 font-bold mt-1">فشار، دما، دبی و توان حرارتی</span>
         </motion.div>
 
         {/* Card 7: تماس با ما */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => onSelectSection('gas', 'contact')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center mb-3">
-            <MessageSquare className="w-6 h-6" />
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-705 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-violet-500/20 to-purple-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 backdrop-blur-md border border-violet-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-violet-500/20 group-hover:border-violet-400/50 shadow-[0_0_10px_rgba(139,92,246,0.15)] group-hover:shadow-[0_0_15px_rgba(139,92,246,0.25)]">
+              <MessageSquare className="w-5 h-5 animate-float text-violet-400 dark:text-violet-350" />
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">تماس با ما</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">مشاوره آنلاین با کارشناسان</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">تماس با ما</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">مشاوره آنلاین با کارشناسان</span>
         </motion.div>
 
         {/* Card 8: فروشگاه ملزومات و قیمت */}
         <motion.div
-          whileHover={{ y: -4, scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ y: -4, scale: 1.015 }}
+          whileTap={{ scale: 0.985 }}
           onClick={() => onSelectSection('gas', 'store')}
-          className="bg-white dark:bg-slate-800/90 dark:border-slate-700/80 p-5 rounded-3xl border border-slate-100 shadow-sm flex flex-col items-center justify-center text-center cursor-pointer transition-all hover:shadow-md"
+          className="group overflow-hidden rounded-2xl aspect-[2.1/1] relative border border-slate-200/10 dark:border-slate-850 shadow-md flex flex-col items-center justify-center p-3 cursor-pointer select-none"
         >
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center mb-3">
-            <svg className="w-6 h-6 text-indigo-600 dark:text-indigo-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          {/* Cover Image */}
+          <div 
+            className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
+            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?auto=format&fit=crop&w=600&q=80')` }}
+          />
+          {/* Dark Glassmorphism Overlay */}
+          <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
+          
+          {/* Radial Light Leak / Halo */}
+          <div className="absolute -inset-1 z-0 bg-gradient-to-r from-indigo-500/20 to-blue-500/20 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-all duration-500" />
+          
+          {/* Card Content */}
+          <div className="relative z-20 flex flex-col items-center text-center">
+            {/* Glowing Icon Container */}
+            <div className="w-9 h-9 rounded-xl bg-indigo-500/10 backdrop-blur-md border border-indigo-500/30 flex items-center justify-center mb-1.5 transition-colors duration-300 group-hover:bg-indigo-500/20 group-hover:border-indigo-400/50 shadow-[0_0_10px_rgba(99,102,241,0.15)] group-hover:shadow-[0_0_15px_rgba(99,102,241,0.25)]">
+              <svg className="w-5 h-5 text-indigo-400 dark:text-indigo-300 animate-pulse-slow font-black" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <span className="font-extrabold text-xs text-white tracking-wide">فروشگاه ملزومات</span>
+            <span className="text-[8.5px] text-slate-355 font-bold mt-0.5 max-w-[140px] leading-relaxed line-clamp-1 shadow-sm">لیست قیمت لوله‌ها و اتصالات</span>
           </div>
-          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-200">فروشگاه ملزومات</span>
-          <span className="text-[9px] text-slate-400 font-bold mt-1">لیست قیمت لوله‌ها و اتصالات</span>
         </motion.div>
 
       </div>
