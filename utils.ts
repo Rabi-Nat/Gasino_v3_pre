@@ -287,11 +287,9 @@ export const getProxiedImageUrl = (url: string): string => {
     return generateBlueprintSvg('gas');
   }
 
-  // Live remote image (e.g. from Sheets)
-  const isExternal = url.startsWith('http://') || url.startsWith('https://');
-  if (isExternal && !url.includes('api/proxy-image')) {
-    return getApiUrl(`/api/proxy-image?url=${encodeURIComponent(url)}`);
-  }
+  // Live remote image (e.g. from Google Sheets or custom hosts)
+  // We load the URL directly on the client side to avoid Cloud Run US-east server being geo-blocked by domestic Iranian hosts.
+  // This ensures 0-latency and maximum reliability since <img> tags are not restricted by CORS.
   return url;
 };
 
