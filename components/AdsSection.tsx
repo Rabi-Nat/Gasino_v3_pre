@@ -24,6 +24,8 @@ import {
   Grid
 } from 'lucide-react';
 
+import { getApiUrl, getProxiedImageUrl } from '../utils';
+
 export interface AdItem {
   id: string;
   title: string;
@@ -101,6 +103,13 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
   const [isAdminAuth, setIsAdminAuth] = useState<boolean>(false);
   const [sourceUrl, setSourceUrl] = useState<string>('');
   const [customPasscode, setCustomPasscode] = useState<string>('gasino_admin');
+  const [apiServerUrl, setApiServerUrl] = useState<string>(() => {
+    try {
+      return localStorage.getItem('gasino_api_server_url') || 'https://ais-pre-paup5q3fn37ypcgv6bevqn-56010228689.us-east1.run.app';
+    } catch {
+      return 'https://ais-pre-paup5q3fn37ypcgv6bevqn-56010228689.us-east1.run.app';
+    }
+  });
 
   const [isAdminAuthorized, setIsAdminAuthorized] = useState<boolean>(() => {
     try {
@@ -188,7 +197,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
   const fetchAds = async () => {
     setLoading(true);
     try {
-      const resp = await fetch('/api/ads');
+      const resp = await fetch(getApiUrl('/api/ads'));
       if (resp.ok) {
         const data = await resp.json();
         if (data && data.success && Array.isArray(data.ads)) {
@@ -242,7 +251,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
       localStorage.setItem('gasino_cached_ads', JSON.stringify(updatedAds));
 
       // Server tracking
-      await fetch('/api/ads/click', {
+      await fetch(getApiUrl('/api/ads/click'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adId: ad.id })
@@ -277,7 +286,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
     }
     setLoading(true);
     try {
-      const resp = await fetch('/api/ads/verify-passcode', {
+      const resp = await fetch(getApiUrl('/api/ads/verify-passcode'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ passcode: trimmed })
@@ -317,7 +326,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
     setLoading(true);
     const savedPasscode = localStorage.getItem('gasino_admin_passcode') || '';
     try {
-      const resp = await fetch('/api/ads/config', {
+      const resp = await fetch(getApiUrl('/api/ads/config'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -537,7 +546,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
                     <div className="space-y-6">
                       
                       {/* Sub-Header bar is authenticated */}
-                      <div className="flex justify-between items-center bg-emerald-505/5 dark:bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl">
+                      <div className="flex justify-between items-center bg-emerald-555/5 dark:bg-emerald-500/10 border border-emerald-500/20 p-4 rounded-2xl">
                         <div className="flex items-center gap-2">
                           <ShieldCheck className="w-5 h-5 text-emerald-500" />
                           <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
@@ -550,6 +559,34 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
                         >
                           خروج از پنل مدیریت
                         </button>
+                      </div>
+
+                      {/* API Server URL Config */}
+                      <div className="bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 p-5 rounded-2xl space-y-3">
+                        <div className="flex items-center gap-2.5 text-amber-600 dark:text-amber-400">
+                          <Settings className="w-5 h-5 shrink-0" />
+                          <h4 className="text-xs font-black">آدرس سرور مرکزی گازینو (Web Base URL)</h4>
+                        </div>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400 font-bold leading-relaxed">
+                          جهت لود پویای آگهی‌ها و ارسال درست تیکت‌های استعلام قیمت تلگرام روی موبایل (APK)، نیاز است آدرس وب سرور شما تعریف شود.
+                        </p>
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            value={apiServerUrl}
+                            onChange={(e) => {
+                              const value = e.target.value.trim();
+                              localStorage.setItem('gasino_api_server_url', value);
+                              setApiServerUrl(value);
+                            }}
+                            placeholder="مثال: https://your-server.run.app"
+                            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-slate-950 font-mono text-[11px] font-bold rounded-xl border border-slate-200 dark:border-slate-800 focus:outline-none focus:ring-1 focus:ring-amber-500 text-left"
+                            dir="ltr"
+                          />
+                        </div>
+                        <p className="text-[9.5px] text-amber-505 font-bold">
+                          💡 پس‌فرض برنامه روی سرور کلودران کنونی ست شده است. اگر آدرس دامنه وبسایت را تغییر دادید، مقدار بالا را ویرایش کنید.
+                        </p>
                       </div>
 
                       {/* CONFIG SECTION 1: DYNAM-FREE SERVER RECOMMENDATION (IRANIAN FRIENDLY) */}
@@ -1017,7 +1054,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
 
               <div className="w-full md:w-32 h-24 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shrink-0 shadow-inner bg-slate-50">
                 <img 
-                  src={currentAd.imageUrl || undefined} 
+                  src={getProxiedImageUrl(currentAd.imageUrl) || undefined} 
                   alt={currentAd.title} 
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
@@ -1070,7 +1107,7 @@ export const AdsSection: React.FC<AdsSectionProps> = ({ variant = 'banner', onSh
             {/* Ad Banner Image */}
             <div className="w-full md:w-32 h-24 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shrink-0 shadow-inner bg-slate-50">
               <img 
-                src={currentAd.imageUrl || undefined} 
+                src={getProxiedImageUrl(currentAd.imageUrl) || undefined} 
                 alt={currentAd.title} 
                 referrerPolicy="no-referrer"
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"

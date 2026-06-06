@@ -59,6 +59,7 @@ import { MechanicalHvac } from './components/MechanicalHvac';
 import { UserGuide } from './components/UserGuide';
 import ClassicLanding from './components/ClassicLanding';
 import { AdsSection } from './components/AdsSection';
+import { getProxiedImageUrl } from './utils';
 
 type SectionId = 'gas' | 'fire' | 'plumbing' | 'hvac';
 type TabId = 'pipe' | 'ventilation' | 'meter' | 'valve' | 'safety' | 'price' | 'contact' | 'store' | 'test' | 'water' | 'firepipe' | 'extinguisher' | 'pump' | 'plumbing' | 'plumbing_reservoir' | 'plumbing_rainwater' | 'plumbing_test' | 'hvac_load' | 'hvac_duct' | 'hvac_pipe' | 'hvac_test';
@@ -996,7 +997,7 @@ const App: React.FC = () => {
             };
 
             const colClass = bentoColClasses[menuItem.id] || 'col-span-1 h-36';
-            const bgImage = bentoImages[menuItem.id] || '';
+            const bgImage = getProxiedImageUrl(bentoImages[menuItem.id] || '');
             const activeHalo = systemHalos[menuItem.id] || 'group-hover:shadow-lg';
 
             const modernBadgeStyles: Record<string, string> = {
@@ -1282,7 +1283,7 @@ const App: React.FC = () => {
             transition={{ duration: 0.8, ease: "easeInOut" }}
             className="absolute inset-0 bg-cover bg-center"
             style={{ 
-              backgroundImage: `url(${sectionBackgrounds[activeSection]})`,
+              backgroundImage: `url(${getProxiedImageUrl(sectionBackgrounds[activeSection])})`,
               filter: 'grayscale(15%) contrast(110%) blur(0.5px)'
             }}
           />

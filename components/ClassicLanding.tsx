@@ -22,6 +22,7 @@ import {
   MessageSquare,
   LogOut
 } from 'lucide-react';
+import { getProxiedImageUrl } from '../utils';
 
 const UNIT_DATA = {
   pressure: {
@@ -386,7 +387,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -415,7 +416,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1584622650111-993a426fbf0a?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -444,7 +445,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1516383274235-5f42d6c6426d?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1516383274235-5f42d6c6426d?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -473,7 +474,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1504307651254-35680f356dfd?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -502,7 +503,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1506784983877-45594efa4cbe?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -531,7 +532,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -560,7 +561,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-705 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />
@@ -589,7 +590,7 @@ export default function ClassicLanding({ onSelectSection, onShowGuide, isDark }:
           {/* Cover Image */}
           <div 
             className="absolute inset-0 z-0 bg-cover bg-center transition-transform duration-700 ease-out scale-100 group-hover:scale-105"
-            style={{ backgroundImage: `url('https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?auto=format&fit=crop&w=600&q=80')` }}
+            style={{ backgroundImage: `url(${getProxiedImageUrl('https://images.unsplash.com/photo-1517646287270-a5a9ca602e5c?auto=format&fit=crop&w=600&q=80')})` }}
           />
           {/* Dark Glassmorphism Overlay */}
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-slate-950/95 via-slate-950/75 to-slate-900/40 opacity-90 transition-opacity duration-300 group-hover:opacity-95" />

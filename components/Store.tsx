@@ -28,6 +28,7 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { getApiUrl } from '../utils';
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory } from '@capacitor/filesystem';
 import { Share } from '@capacitor/share';
@@ -694,8 +695,7 @@ export const Store: React.FC = () => {
       }
 
       // 2. Fallback: Use server-side endpoint (for Web environments)
-      const apiBase = import.meta.env.VITE_API_BASE_URL || '';
-      const endpoint = `${apiBase}/api/inquiry`;
+      const endpoint = getApiUrl('/api/inquiry');
       
       const response = await fetch(endpoint, {
         method: 'POST',

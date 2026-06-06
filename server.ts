@@ -312,6 +312,39 @@ async function startServer() {
     }
   });
 
+  // Proxy endpoint to bypass censorship / VPN blocks on image CDNs like Unsplash inside Iran
+  app.get("/api/proxy-image", async (req, res) => {
+    const imageUrl = req.query.url as string;
+    if (!imageUrl) {
+      return res.status(400).send("Parameter 'url' is required");
+    }
+
+    try {
+      const response = await fetch(imageUrl, {
+        signal: AbortSignal.timeout(10000),
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko)",
+          "Referer": "https://unsplash.com/"
+        }
+      });
+
+      if (!response.ok) {
+        return res.status(response.status).send(`Failed fetching remote image: ${response.statusText}`);
+      }
+
+      const contentType = response.headers.get("content-type") || "image/jpeg";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Cache-Control", "public, max-age=604800, immutable"); // Cache client/CDN-side for 7 days
+
+      const arrayBuffer = await response.arrayBuffer();
+      const buffer = Buffer.from(arrayBuffer);
+      return res.send(buffer);
+    } catch (err: any) {
+      console.error("[ERROR] Image proxy failed:", err.message);
+      return res.status(500).send("Failed to proxy image: " + err.message);
+    }
+  });
+
   // Health check route
   app.get("/api/health", (req, res) => {
     res.json({ 
