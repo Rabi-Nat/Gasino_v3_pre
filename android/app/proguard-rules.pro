@@ -20,7 +20,5 @@
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
 
-# Preserving Cafe Bazaar / In-App Billing AIDL interface
--keep class com.android.vending.billing.IInAppBillingService { *; }
--keep class com.android.vending.billing.IInAppBillingService$Stub { *; }
+
 
